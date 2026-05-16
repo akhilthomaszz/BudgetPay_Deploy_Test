@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, Wallet, Coins } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { X, Wallet, Coins } from 'lucide-react-native';
 import { FirestoreService } from '../lib/firestoreService';
 import { useAuth } from '../context/AuthContext';
 import { useBudget } from '../context/BudgetContext';
@@ -18,8 +18,7 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
   const [currency, setCurrency] = useState(profile?.currency || 'INR');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!user) return;
 
     setIsSubmitting(true);
@@ -38,72 +37,167 @@ export function ProfileSettingsModal({ isOpen, onClose }: ProfileSettingsModalPr
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/60 z-[100] backdrop-blur-sm"
-          />
-          <motion.div 
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            className="fixed inset-x-0 bottom-0 bg-white rounded-t-[32px] p-8 z-[101] shadow-2xl"
-          >
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-black text-gray-900">Profile Settings</h2>
-              <button onClick={onClose} className="p-2 bg-gray-100 rounded-full text-gray-400">
-                <X size={20} />
-              </button>
-            </div>
+    <Modal
+      visible={isOpen}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.overlay}>
+        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalContainer}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.header}>
+              <Text style={styles.title}>Profile Settings</Text>
+              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                <X size={20} color="#9ca3af" />
+              </TouchableOpacity>
+            </View>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Monthly Budget</label>
-                <div className="relative">
-                  <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <input 
-                    type="number" 
+            <View style={styles.form}>
+              <View style={styles.field}>
+                <Text style={styles.label}>Monthly Budget</Text>
+                <View style={styles.inputWrapper}>
+                  <Wallet color="#9ca3af" size={18} style={styles.inputIcon} />
+                  <TextInput 
                     value={budget}
-                    onChange={e => setBudget(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-4 pl-12 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"
-                    required
+                    onChangeText={setBudget}
+                    keyboardType="numeric"
+                    style={styles.input}
+                    placeholder="20000"
                   />
-                </div>
-              </div>
+                </View>
+              </View>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Currency</label>
-                <div className="relative">
-                  <Coins className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <select 
-                    value={currency}
-                    onChange={e => setCurrency(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-4 pl-12 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none appearance-none"
-                  >
-                    <option value="INR">Indian Rupee (₹)</option>
-                    <option value="USD">US Dollar ($)</option>
-                    <option value="EUR">Euro (€)</option>
-                    <option value="GBP">British Pound (£)</option>
-                  </select>
-                </div>
-              </div>
+              <View style={styles.field}>
+                <Text style={styles.label}>Currency</Text>
+                <View style={[styles.inputWrapper, { backgroundColor: '#f3f4f6', opacity: 0.7 }]}>
+                  <Coins color="#9ca3af" size={18} style={styles.inputIcon} />
+                  <Text style={styles.fakeSelectText}>{currency === 'INR' ? 'Indian Rupee (₹)' : currency}</Text>
+                </View>
+                <Text style={styles.infoText}>Currency switching is being enabled for mobile soon.</Text>
+              </View>
 
-              <button 
-                type="submit"
+              <TouchableOpacity 
+                onPress={handleSubmit}
                 disabled={isSubmitting}
-                className="w-full bg-blue-600 hover:bg-black text-white py-5 rounded-[24px] font-black shadow-xl transition-all active:scale-95 disabled:opacity-50"
+                style={[styles.saveBtn, isSubmitting && { opacity: 0.5 }]}
               >
-                Save Settings
-              </button>
-            </form>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+                {isSubmitting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.saveBtnText}>Save Settings</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  modalContainer: {
+    width: '100%',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
+    paddingBottom: 40,
+    gap: 24,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#111B21',
+  },
+  closeBtn: {
+    padding: 8,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 20,
+  },
+  form: {
+    gap: 20,
+  },
+  field: {
+    gap: 8,
+  },
+  label: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#9ca3af',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginLeft: 4,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  input: {
+    flex: 1,
+    height: 52,
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#111B21',
+  },
+  fakeSelectText: {
+    flex: 1,
+    paddingVertical: 16,
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#111B21',
+  },
+  infoText: {
+    fontSize: 10,
+    color: '#9ca3af',
+    fontStyle: 'italic',
+    marginLeft: 4,
+  },
+  saveBtn: {
+    backgroundColor: '#00A884',
+    paddingVertical: 18,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    elevation: 4,
+    shadowColor: '#00A884',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+  },
+  saveBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '900',
+  }
+});

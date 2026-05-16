@@ -1,91 +1,138 @@
 import React from 'react';
-import { Home, QrCode, Target, Clock, User } from 'lucide-react';
-import { cn } from '../lib/utils';
-import { motion, AnimatePresence } from 'motion/react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
+import { Home, QrCode, Target, Clock, User } from 'lucide-react-native';
 
-export type View = 'home' | 'pay' | 'goals' | 'history' | 'profile' | 'categories' | 'edit-tx';
+export type ViewType = 'home' | 'pay' | 'goals' | 'history' | 'profile' | 'categories' | 'edit-tx';
 
 interface LayoutProps {
-  currentView: View;
-  onViewChange: (view: View) => void;
+  currentView: ViewType;
+  onViewChange: (view: ViewType) => void;
   children: React.ReactNode;
 }
 
+const { width } = Dimensions.get('window');
+
 export function Layout({ currentView, onViewChange, children }: LayoutProps) {
   const navItems = [
-    { id: 'home' as View, label: 'Home', icon: Home },
-    { id: 'goals' as View, label: 'Goals', icon: Target },
-    { id: 'history' as View, label: 'History', icon: Clock },
+    { id: 'home' as ViewType, label: 'Home', icon: Home },
+    { id: 'goals' as ViewType, label: 'Goals', icon: Target },
+    { id: 'history' as ViewType, label: 'History', icon: Clock },
   ];
 
   const hideNav = ['pay', 'edit-tx', 'categories'].includes(currentView);
 
   return (
-    <div className="min-h-screen bg-brand-bg flex justify-center items-center p-0 md:p-8">
-      {/* Mobile Frame Simulation on Desktop */}
-      <div className="w-full max-w-[400px] h-full min-h-screen md:min-h-[850px] bg-white md:rounded-[40px] md:shadow-2xl overflow-hidden relative flex flex-col border border-brand-gray/10">
-        
-        {/* Status Bar */}
-        <div className="px-6 pt-10 pb-2 flex justify-between items-center text-xs font-semibold text-gray-500">
-          <span>9:41</span>
-          <div className="flex items-center gap-1.5">
-            <span className="opacity-70">⚡</span>
-            <span>84%</span>
-          </div>
-        </div>
+    <SafeAreaView style={styles.container} edges={['right', 'left', 'bottom']}>
+      <View style={styles.content}>
+        <ScrollView 
+          contentContainerStyle={[styles.scrollView, hideNav && styles.scrollViewNoNav]}
+          showsVerticalScrollIndicator={false}
+        >
+          {children}
+        </ScrollView>
 
-        {/* Content Area */}
-        <main className="flex-1 overflow-y-auto no-scrollbar pb-24 relative">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentView}
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              transition={{ duration: 0.2 }}
-              className="h-full"
-            >
-              {children}
-            </motion.div>
-          </AnimatePresence>
-
-          {/* Fixed Payment Bubble */}
-          {!hideNav && (
-            <motion.button
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => onViewChange('pay')}
-              className="fixed bottom-28 right-8 md:absolute md:bottom-28 md:right-8 w-14 h-14 bg-brand-teal text-white rounded-full shadow-2xl flex items-center justify-center z-50 border-4 border-white group"
-            >
-              <div className="absolute -top-12 right-0 bg-brand-text text-white text-[10px] font-black py-1.5 px-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                SCAN & PAY
-                <div className="absolute -bottom-1 right-4 w-2 h-2 bg-brand-text rotate-45" />
-              </div>
-              <QrCode size={24} strokeWidth={3} />
-            </motion.button>
-          )}
-        </main>
-
-        {/* Bottom Navigation */}
         {!hideNav && (
-          <nav className="absolute bottom-0 left-0 right-0 bg-white border-t border-brand-gray/5 flex items-center justify-around pb-8 pt-3 px-4 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => onViewChange(item.id)}
-                className={cn(
-                  "flex flex-col items-center gap-1 transition-all duration-200",
-                  currentView === item.id ? "text-brand-teal scale-110" : "text-brand-gray/60 hover:text-brand-teal"
-                )}
-              >
-                <item.icon size={22} strokeWidth={currentView === item.id ? 2.5 : 2} />
-                <span className="text-[10px] font-bold uppercase tracking-wider">{item.label}</span>
-              </button>
-            ))}
-          </nav>
+          <TouchableOpacity 
+            activeOpacity={0.8}
+            onPress={() => onViewChange('pay')}
+            style={styles.payButton}
+          >
+            <QrCode color="#fff" size={28} strokeWidth={3} />
+          </TouchableOpacity>
         )}
-      </div>
-    </div>
+      </View>
+
+      {!hideNav && (
+        <View style={styles.bottomNav}>
+          {navItems.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              onPress={() => onViewChange(item.id)}
+              style={styles.navItem}
+              activeOpacity={0.6}
+            >
+              <item.icon 
+                color={currentView === item.id ? '#00A884' : '#667781'} 
+                size={22} 
+                strokeWidth={currentView === item.id ? 2.5 : 2} 
+              />
+              <Text style={[
+                styles.navText,
+                currentView === item.id && styles.navTextActive
+              ]}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F0F2F5',
+  },
+  content: {
+    flex: 1,
+    position: 'relative',
+  },
+  scrollView: {
+    flexGrow: 1,
+    paddingBottom: 100, // Space for nav
+  },
+  scrollViewNoNav: {
+    paddingBottom: 20,
+  },
+  payButton: {
+    position: 'absolute',
+    bottom: 40,
+    right: 30,
+    width: 64,
+    height: 64,
+    backgroundColor: '#00A884',
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    borderWidth: 4,
+    borderColor: '#fff',
+    zIndex: 10,
+  },
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    paddingBottom: 25,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+    justifyContent: 'space-around',
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+  },
+  navItem: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  navText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: 'rgba(102, 119, 129, 0.6)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  navTextActive: {
+    color: '#00A884',
+  }
+});

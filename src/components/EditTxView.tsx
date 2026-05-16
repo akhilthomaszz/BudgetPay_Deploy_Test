@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Trash2, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { ArrowLeft, Trash2, Check, AlertCircle } from 'lucide-react-native';
 import { useBudget } from '../context/BudgetContext';
 import { useAuth } from '../context/AuthContext';
 import { FirestoreService } from '../lib/firestoreService';
@@ -27,9 +28,9 @@ export function EditTxView({ transactionId, onBack }: { transactionId: string | 
 
   if (!tx) {
     return (
-      <div className="flex items-center justify-center p-12">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-      </div>
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#00A884" />
+      </View>
     );
   }
 
@@ -40,7 +41,6 @@ export function EditTxView({ transactionId, onBack }: { transactionId: string | 
       const newAmount = Number(amount);
       const diff = newAmount - tx.amount;
 
-      // Update related budget or goal
       if (tx.categoryId) {
         const cat = categories.find(c => c.id === tx.categoryId);
         if (cat) {
@@ -73,100 +73,268 @@ export function EditTxView({ transactionId, onBack }: { transactionId: string | 
   };
 
   const handleDelete = async () => {
-    if (!user || !tx || !confirm('Delete this transaction?')) return;
-    setIsSubmitting(true);
-    try {
-      // Revert budget spent or goal progress
-      if (tx.categoryId) {
-        const cat = categories.find(c => c.id === tx.categoryId);
-        if (cat) {
-          await FirestoreService.updateDocument(FirestoreService.getCategoriesPath(user.uid), cat.id, {
-            spent: Math.max(0, cat.spent - tx.amount),
-            updatedAt: serverTimestamp(),
-          });
-        } else {
-          const goal = goals.find(g => g.id === tx.categoryId);
-          if (goal) {
-            await FirestoreService.updateDocument(FirestoreService.getGoalsPath(user.uid), goal.id, {
-              currentAmount: Math.max(0, goal.currentAmount - tx.amount),
-              updatedAt: serverTimestamp(),
-            });
+    if (!user || !tx) return;
+    
+    Alert.alert(
+      "Delete Transaction",
+      "Delete this transaction? Budget progress will be reverted.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive",
+          onPress: async () => {
+            setIsSubmitting(true);
+            try {
+              if (tx.categoryId) {
+                const cat = categories.find(c => c.id === tx.categoryId);
+                if (cat) {
+                  await FirestoreService.updateDocument(FirestoreService.getCategoriesPath(user.uid), cat.id, {
+                    spent: Math.max(0, cat.spent - tx.amount),
+                    updatedAt: serverTimestamp(),
+                  });
+                } else {
+                  const goal = goals.find(g => g.id === tx.categoryId);
+                  if (goal) {
+                    await FirestoreService.updateDocument(FirestoreService.getGoalsPath(user.uid), goal.id, {
+                      currentAmount: Math.max(0, goal.currentAmount - tx.amount),
+                      updatedAt: serverTimestamp(),
+                    });
+                  }
+                }
+              }
+              await FirestoreService.deleteDocument(FirestoreService.getTransactionsPath(user.uid), tx.id);
+              onBack();
+            } catch (err) {
+              console.error(err);
+            } finally {
+              setIsSubmitting(false);
+            }
           }
         }
-      }
-      
-      await FirestoreService.deleteDocument(FirestoreService.getTransactionsPath(user.uid), tx.id);
-      onBack();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSubmitting(false);
-    }
+      ]
+    );
   };
 
   return (
-    <div className="px-5 space-y-6 pb-6 pt-2">
-      <header className="flex items-center justify-between py-4">
-        <button onClick={onBack} className="p-2 -ml-2 text-gray-400">
-          <ArrowLeft size={20} />
-        </button>
-        <h2 className="text-lg font-bold">Edit Transaction</h2>
-        <div className="w-10" />
-      </header>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack} style={styles.backButton}>
+          <ArrowLeft color="#667781" size={20} />
+        </TouchableOpacity>
+        <Text style={styles.title}>Edit Transaction</Text>
+        <View style={{ width: 40 }} />
+      </View>
 
-      <div className="bg-blue-50 border border-blue-100 p-5 rounded-[24px] flex flex-col gap-4">
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest ml-1">Edit Amount (₹)</label>
-          <input 
-            type="number" 
+      <View style={styles.txCard}>
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>Edit Amount (₹)</Text>
+          <TextInput
+            style={styles.amountInput}
             value={amount}
-            onChange={e => setAmount(e.target.value)}
-            className="w-full bg-white border border-blue-100 rounded-2xl p-4 text-2xl font-black text-blue-900 focus:ring-2 focus:ring-blue-500 outline-none"
+            onChangeText={setAmount}
+            keyboardType="numeric"
           />
-        </div>
-        <div className="pt-2 border-t border-blue-100 flex justify-between">
-          <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Category</span>
-          <span className="text-[10px] font-black text-blue-900 uppercase tracking-widest">{tx.categoryName}</span>
-        </div>
-      </div>
+        </View>
+        <View style={styles.divider} />
+        <View style={styles.metaRow}>
+          <Text style={styles.metaLabel}>Category</Text>
+          <Text style={styles.metaValue}>{tx.categoryName}</Text>
+        </View>
+      </View>
 
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Edit Note</label>
-          <input 
-            type="text" 
-            value={note}
-            onChange={e => setNote(e.target.value)}
-            className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"
-            placeholder="Add a note..."
-          />
-        </div>
+      <View style={[styles.field, { gap: 8 }]}>
+        <Text style={styles.fieldLabel}>Edit Note</Text>
+        <TextInput
+          style={styles.noteInput}
+          value={note}
+          onChangeText={setNote}
+          placeholder="Add a note..."
+        />
+      </View>
 
-        <div className="bg-yellow-50 border border-yellow-100 p-4 rounded-2xl flex gap-3">
-          <AlertCircle className="text-yellow-600 shrink-0" size={18} />
-          <p className="text-[10px] text-yellow-700 font-medium leading-relaxed">
-            Updating the amount will automatically adjust your <span className="font-bold">{tx.categoryName}</span> progress.
-          </p>
-        </div>
+      <View style={styles.warnBox}>
+        <AlertCircle color="#d97706" size={18} />
+        <Text style={styles.warnText}>
+          Updating the amount will automatically adjust your <Text style={{fontWeight:'bold'}}>{tx.categoryName}</Text> progress.
+        </Text>
+      </View>
 
-        <div className="space-y-3">
-          <button 
-            onClick={handleUpdate}
-            disabled={isSubmitting || !amount}
-            className="w-full bg-black hover:bg-neutral-800 text-white py-5 rounded-[24px] font-black flex items-center justify-center gap-2 shadow-xl shadow-blue-100 transition-all active:scale-95 disabled:opacity-50"
-          >
-            <Check size={18} /> Update Transaction
-          </button>
+      <View style={styles.actions}>
+        <TouchableOpacity 
+          onPress={handleUpdate}
+          disabled={isSubmitting || !amount}
+          style={[styles.updateBtn, (isSubmitting || !amount) && styles.disabledBtn]}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Check color="#fff" size={18} />
+              <Text style={styles.updateBtnText}>Update Transaction</Text>
+            </>
+          )}
+        </TouchableOpacity>
 
-          <button 
-            onClick={handleDelete}
-            disabled={isSubmitting}
-            className="w-full bg-white border border-red-100 text-red-600 py-4 rounded-[24px] font-black flex items-center justify-center gap-2 hover:bg-red-50 transition-colors uppercase text-[10px] tracking-widest"
-          >
-            <Trash2 size={16} /> Delete Transaction
-          </button>
-        </div>
-      </div>
-    </div>
+        <TouchableOpacity 
+          onPress={handleDelete}
+          disabled={isSubmitting}
+          style={styles.deleteBtn}
+        >
+          <Trash2 color="#ef4444" size={16} />
+          <Text style={styles.deleteBtnText}>Delete Transaction</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  content: {
+    padding: 20,
+    gap: 24,
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+  },
+  backButton: {
+    padding: 8,
+    marginLeft: -8,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111B21',
+  },
+  txCard: {
+    backgroundColor: 'rgba(217, 253, 211, 0.2)',
+    borderWidth: 1,
+    borderColor: '#D9FDD3',
+    padding: 20,
+    borderRadius: 24,
+    gap: 16,
+  },
+  field: {
+    gap: 6,
+  },
+  fieldLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#00A884',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginLeft: 4,
+  },
+  amountInput: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#D9FDD3',
+    borderRadius: 16,
+    padding: 16,
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#111B21',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#D9FDD3',
+  },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  metaLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#00A884',
+    textTransform: 'uppercase',
+  },
+  metaValue: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#111B21',
+    textTransform: 'uppercase',
+  },
+  noteInput: {
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+    borderRadius: 16,
+    padding: 16,
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#111B21',
+  },
+  warnBox: {
+    flexDirection: 'row',
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fef3c7',
+    padding: 16,
+    borderRadius: 16,
+    gap: 12,
+  },
+  warnText: {
+    fontSize: 10,
+    color: '#92400e',
+    fontWeight: '500',
+    lineHeight: 16,
+    flex: 1,
+  },
+  actions: {
+    gap: 12,
+    paddingTop: 12,
+  },
+  updateBtn: {
+    backgroundColor: '#111B21',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    borderRadius: 24,
+    gap: 12,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+  },
+  disabledBtn: {
+    opacity: 0.5,
+  },
+  updateBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  deleteBtn: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#fee2e2',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 24,
+    gap: 8,
+  },
+  deleteBtnText: {
+    color: '#ef4444',
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  }
+});

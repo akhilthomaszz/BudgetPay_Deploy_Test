@@ -4,7 +4,7 @@ import {
   Utensils, Heart, Sparkles, LayoutGrid, Target, Home, Plane, 
   Bike, Gamepad2, Trophy, Gift, Laptop, Smartphone, Gem, Sofa, 
   Construction, ShieldCheck, Clock
-} from 'lucide-react';
+} from 'lucide-react-native';
 
 export const ICON_MAP: Record<string, React.ElementType> = {
   'shopping-cart': ShoppingCart,

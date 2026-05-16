@@ -1,12 +1,9 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState } from 'react';
+import { View, ActivityIndicator, StyleSheet, StatusBar } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { BudgetProvider, useBudget } from './context/BudgetContext';
-import { Layout, View } from './components/Layout';
+import { Layout, ViewType } from './components/Layout';
 import { HomeView } from './components/HomeView';
 import { PayView } from './components/PayView';
 import { GoalsView } from './components/GoalsView';
@@ -15,12 +12,11 @@ import { ProfileView } from './components/ProfileView';
 import { CategoriesView } from './components/CategoriesView';
 import { EditTxView } from './components/EditTxView';
 import { LandingPage } from './components/LandingPage';
-import { Loader2 } from 'lucide-react';
 
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
   const { loading: budgetLoading } = useBudget();
-  const [currentView, setCurrentView] = useState<View>('home');
+  const [currentView, setCurrentView] = useState<ViewType>('home');
   const [editingTxId, setEditingTxId] = useState<string | null>(null);
 
   const handleEditTx = (id: string) => {
@@ -30,14 +26,14 @@ function AppContent() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-blue-900">
-        <Loader2 className="w-8 h-8 text-white animate-spin opacity-50" />
-      </div>
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#fff" />
+      </View>
     );
   }
 
   if (!user) {
-    return <LandingPage />;
+    return <LandingPage onStart={() => {}} />; // Landing page will need conversion too
   }
 
   const renderView = () => {
@@ -80,10 +76,22 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BudgetProvider>
-        <AppContent />
-      </BudgetProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <StatusBar barStyle="dark-content" />
+      <AuthProvider>
+        <BudgetProvider>
+          <AppContent />
+        </BudgetProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  loaderContainer: {
+    flex: 1,
+    backgroundColor: '#1e3a8a', // blue-900 equivalent
+    justifyContent: 'center',
+    alignItems: 'center',
+  }
+});
