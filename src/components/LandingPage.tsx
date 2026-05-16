@@ -1,182 +1,59 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { useAuth } from '../context/AuthContext';
-import { Wallet, ArrowRight, ShieldCheck, Zap } from 'lucide-react-native';
-
-const { width, height } = Dimensions.get('window');
+import { Wallet, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import { motion } from 'motion/react';
 
 export function LandingPage() {
   const { signIn } = useAuth();
 
   return (
-    <View style={styles.container}>
+    <div className="min-h-screen bg-blue-900 flex flex-col items-center justify-center p-8 text-white relative overflow-hidden">
       {/* Decorative Elements */}
-      <View style={styles.headerBlur} />
-      <View style={styles.footerBlur} />
+      <div className="absolute top-[-10%] right-[-10%] w-[80%] aspect-square bg-blue-800 rounded-full blur-[120px] opacity-50" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-[60%] aspect-square bg-green-900 rounded-full blur-[100px] opacity-30" />
 
-      <View style={styles.content}>
-        <View style={styles.logoContainer}>
-          <View style={styles.iconBox}>
-            <Wallet size={40} color="#1e3a8a" />
-          </View>
-        </View>
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+        className="z-10 flex flex-col items-center text-center space-y-8 max-w-sm"
+      >
+        <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-2xl rotate-12">
+          <Wallet size={40} className="text-blue-900 -rotate-12" />
+        </div>
 
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>
-            Budget<Text style={styles.titleHighlight}>Pay.</Text>
-          </Text>
-          <Text style={styles.subtitle}>
-            Spend smarter. Save faster. {'\n'}The modern way to manage your UPI life.
-          </Text>
-        </View>
+        <div className="space-y-3">
+          <h1 className="text-5xl font-black tracking-tight leading-tight italic">
+            Budget<span className="text-green-400">Pay.</span>
+          </h1>
+          <p className="text-blue-100 text-lg font-medium opacity-80 px-4">
+            Spend smarter. Save faster. <br />The modern way to manage your UPI life.
+          </p>
+        </div>
 
-        <View style={styles.featuresContainer}>
-          <View style={styles.featureItem}>
-            <View style={[styles.featureIconBox, { backgroundColor: 'rgba(34, 197, 94, 0.2)' }]}>
-               <ShieldCheck size={18} color="#4ade80" />
-            </View>
-            <Text style={styles.featureText}>Bank-grade security over your Firestore data.</Text>
-          </View>
-          
-          <View style={styles.featureItem}>
-            <View style={[styles.featureIconBox, { backgroundColor: 'rgba(234, 179, 8, 0.2)' }]}>
-               <Zap size={18} color="#facc15" />
-            </View>
-            <Text style={styles.featureText}>Real-time budget tracking on every scan.</Text>
-          </View>
-        </View>
+        <div className="grid grid-cols-1 gap-4 w-full pt-4">
+          <div className="flex items-center gap-3 bg-white/5 border border-white/10 p-3 rounded-2xl">
+            <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center text-green-400 shrink-0">
+               <ShieldCheck size={18} />
+            </div>
+            <p className="text-xs font-bold text-left opacity-90">Bank-grade security over your Firestore data.</p>
+          </div>
+          <div className="flex items-center gap-3 bg-white/5 border border-white/10 p-3 rounded-2xl">
+            <div className="w-8 h-8 rounded-lg bg-yellow-500/20 flex items-center justify-center text-yellow-400 shrink-0">
+               <Zap size={18} />
+            </div>
+            <p className="text-xs font-bold text-left opacity-90">Real-time budget tracking on every scan.</p>
+          </div>
+        </div>
 
-        <TouchableOpacity 
-          activeOpacity={0.8}
-          onPress={signIn}
-          style={styles.button}
+        <button 
+          onClick={signIn}
+          className="w-full bg-white text-blue-900 hover:bg-blue-50 active:scale-95 transition-all py-5 rounded-[24px] font-black text-lg flex items-center justify-center gap-3 shadow-2xl shadow-blue-950/50"
         >
-          <Text style={styles.buttonText}>Sign in with Google</Text>
-          <ArrowRight size={20} color="#1e3a8a" />
-        </TouchableOpacity>
-      </View>
-    </View>
+          Sign in with Google
+          <ArrowRight size={20} />
+        </button>
+      </motion.div>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1e3a8a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-  },
-  headerBlur: {
-    position: 'absolute',
-    top: -height * 0.1,
-    right: -width * 0.1,
-    width: width * 0.8,
-    height: width * 0.8,
-    backgroundColor: 'rgba(30, 58, 138, 0.5)',
-    borderRadius: 200,
-  },
-  footerBlur: {
-    position: 'absolute',
-    bottom: -height * 0.1,
-    left: -width * 0.1,
-    width: width * 0.6,
-    height: width * 0.6,
-    backgroundColor: 'rgba(20, 83, 45, 0.3)',
-    borderRadius: 200,
-  },
-  content: {
-    zIndex: 10,
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: 400,
-  },
-  logoContainer: {
-    marginBottom: 32,
-  },
-  iconBox: {
-    width: 80,
-    height: 80,
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    transform: [{ rotate: '12deg' }],
-    elevation: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-  },
-  titleContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  title: {
-    fontSize: 48,
-    fontWeight: '900',
-    color: '#fff',
-    fontStyle: 'italic',
-    letterSpacing: -1,
-  },
-  titleHighlight: {
-    color: '#4ade80',
-  },
-  subtitle: {
-    color: 'rgba(219, 234, 254, 0.8)',
-    fontSize: 18,
-    fontWeight: '500',
-    textAlign: 'center',
-    marginTop: 12,
-    lineHeight: 24,
-  },
-  featuresContainer: {
-    width: '100%',
-    gap: 16,
-    marginBottom: 40,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    padding: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  featureIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  featureText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#fff',
-    flex: 1,
-    opacity: 0.9,
-  },
-  button: {
-    width: '100%',
-    backgroundColor: '#fff',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 20,
-    borderRadius: 24,
-    gap: 12,
-    elevation: 8,
-    shadowColor: '#1e3a8a',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-  },
-  buttonText: {
-    color: '#1e3a8a',
-    fontSize: 18,
-    fontWeight: '900',
-  }
-});

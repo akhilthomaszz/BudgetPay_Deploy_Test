@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, ActivityIndicator, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
-import { X, Target, Calendar, Palette } from 'lucide-react-native';
+import { X, Target, Calendar, Palette } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { FirestoreService } from '../lib/firestoreService';
 import { useAuth } from '../context/AuthContext';
 import { serverTimestamp } from 'firebase/firestore';
 import { Goal } from '../types';
 import { format } from 'date-fns';
+import { cn } from '../lib/utils';
 import { ICON_MAP } from '../lib/icons';
 
 interface GoalModalProps {
@@ -40,6 +41,7 @@ export function GoalModal({ isOpen, onClose, goal }: GoalModalProps) {
       setStatus(goal.status || 'active');
       setIconId(goal.icon || GOAL_ICONS[0]);
       setColor(goal.color || COLORS[0]);
+      // deadline is stored as ISO string in context
       try {
         setDeadline(format(new Date(goal.deadline), 'yyyy-MM-dd'));
       } catch (e) {
@@ -56,7 +58,8 @@ export function GoalModal({ isOpen, onClose, goal }: GoalModalProps) {
     }
   }, [goal, isOpen]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!user || !title || !target || !deadline) return;
 
     setIsSubmitting(true);
@@ -98,339 +101,175 @@ export function GoalModal({ isOpen, onClose, goal }: GoalModalProps) {
   };
 
   return (
-    <Modal
-      visible={isOpen}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalContainer}
-        >
-          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-            <View style={styles.header}>
-              <Text style={styles.title}>{goal ? 'Edit Savings Goal' : 'New Savings Goal'}</Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <X size={20} color="#9ca3af" />
-              </TouchableOpacity>
-            </View>
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/60 z-[100] backdrop-blur-sm"
+          />
+          <motion.div 
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            className="fixed inset-x-0 bottom-0 bg-white rounded-t-[32px] p-8 z-[101] shadow-2xl"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-black text-brand-text">{goal ? 'Edit Savings Goal' : 'New Savings Goal'}</h2>
+              <button onClick={onClose} className="p-2 bg-brand-bg rounded-full text-brand-gray/60 hover:text-brand-teal transition-colors">
+                <X size={20} />
+              </button>
+            </div>
 
-            <View style={styles.form}>
-              <View style={styles.field}>
-                <Text style={styles.label}>Goal Name</Text>
-                <View style={styles.inputWrapper}>
-                  <Target color="#9ca3af" size={18} style={styles.inputIcon} />
-                  <TextInput 
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-brand-gray/60 uppercase tracking-widest ml-1">Goal Name</label>
+                <div className="relative">
+                  <Target className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-gray/40" size={18} />
+                  <input 
+                    type="text" 
                     value={title}
-                    onChangeText={setTitle}
-                    style={styles.input}
+                    onChange={e => setTitle(e.target.value)}
                     placeholder="e.g. Dream Car, Emergency Fund"
+                    className="w-full bg-brand-bg/50 border border-brand-gray/5 rounded-2xl p-4 pl-12 text-sm font-bold focus:ring-2 focus:ring-brand-teal outline-none text-brand-text"
+                    required
                   />
-                </View>
-              </View>
+                </div>
+              </div>
 
-              <View style={styles.row}>
-                <View style={[styles.field, { flex: 1 }]}>
-                  <Text style={styles.label}>Target (₹)</Text>
-                  <TextInput 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-brand-gray/60 uppercase tracking-widest ml-1">Target (₹)</label>
+                  <input 
+                    type="number" 
                     value={target}
-                    onChangeText={setTarget}
-                    keyboardType="numeric"
-                    style={styles.inputSimple}
+                    onChange={e => setTarget(e.target.value)}
                     placeholder="50000"
+                    className="w-full bg-brand-bg/50 border border-brand-gray/5 rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-brand-teal outline-none text-brand-text"
+                    required
                   />
-                </View>
-                <View style={[styles.field, { flex: 1 }]}>
-                  <Text style={styles.label}>Save/mo (₹)</Text>
-                  <TextInput 
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-brand-gray/60 uppercase tracking-widest ml-1">Daily/Monthly (₹)</label>
+                  <input 
+                    type="number" 
                     value={monthlyContribution}
-                    onChangeText={setMonthlyContribution}
-                    keyboardType="numeric"
-                    style={styles.inputSimple}
+                    onChange={e => setMonthlyContribution(e.target.value)}
                     placeholder="2000"
+                    className="w-full bg-brand-bg/50 border border-brand-gray/5 rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-brand-teal outline-none text-brand-text"
                   />
-                </View>
-              </View>
+                </div>
+              </div>
 
-              <View style={styles.field}>
-                <Text style={styles.label}>Deadline Date (YYYY-MM-DD)</Text>
-                <View style={styles.inputWrapper}>
-                  <Calendar color="#9ca3af" size={16} style={styles.inputIcon} />
-                  <TextInput 
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-brand-gray/60 uppercase tracking-widest ml-1">Deadline Date</label>
+                <div className="relative">
+                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-gray/40" size={16} />
+                  <input 
+                    type="date" 
                     value={deadline}
-                    onChangeText={setDeadline}
-                    style={styles.input}
-                    placeholder="2025-12-31"
+                    onChange={e => setDeadline(e.target.value)}
+                    className="w-full bg-brand-bg/50 border border-brand-gray/5 rounded-2xl p-4 pl-10 text-[11px] font-bold focus:ring-2 focus:ring-brand-teal outline-none text-brand-text"
+                    required
                   />
-                </View>
-              </View>
+                </div>
+              </div>
 
-              <View style={styles.field}>
-                <Text style={styles.label}>Choose Icon</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.iconsRow}>
-                  {GOAL_ICONS.map((id) => {
-                    const Icon = ICON_MAP[id] || Target;
-                    return (
-                      <TouchableOpacity
-                        key={id}
-                        onPress={() => setIconId(id)}
-                        style={[
-                          styles.iconBtn,
-                          iconId === id && styles.iconBtnActive
-                        ]}
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-brand-gray/60 uppercase tracking-widest ml-1">Choose Icon</label>
+                  <div className="grid grid-cols-5 gap-3 bg-brand-bg/50 p-3 rounded-[24px] border border-brand-gray/5 overflow-x-auto no-scrollbar">
+                    {GOAL_ICONS.map((id) => {
+                      const Icon = ICON_MAP[id] || Target;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setIconId(id)}
+                          className={cn(
+                            "w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0",
+                            iconId === id 
+                              ? "bg-brand-teal text-white shadow-lg shadow-brand-teal/20 scale-110" 
+                              : "text-brand-gray/40 hover:text-brand-teal hover:bg-brand-light"
+                          )}
+                        >
+                          <Icon size={20} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                    <Palette size={12} /> Goal Color
+                  </label>
+                  <div className="flex justify-between bg-brand-bg/50 p-2 rounded-2xl border border-brand-gray/5">
+                    {COLORS.map(c => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setColor(c)}
+                        className={cn(
+                          "w-10 h-10 rounded-full transition-all relative overflow-hidden",
+                          color === c ? 'scale-110 shadow-lg ring-2 ring-white ring-offset-2 ring-offset-brand-teal' : 'hover:scale-105 saturate-50 hover:saturate-100'
+                        )}
+                        style={{ backgroundColor: c }}
                       >
-                        <Icon size={20} color={iconId === id ? '#fff' : '#667781'} />
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+                        {color === c && (
+                          <motion.div 
+                            layoutId="selected-color-goal"
+                            className="absolute inset-0 bg-white/20 flex items-center justify-center"
+                          >
+                            <div className="w-2 h-2 rounded-full bg-white" />
+                          </motion.div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
 
-              <View style={styles.field}>
-                <View style={styles.labelRow}>
-                  <Palette size={12} color="#9ca3af" />
-                  <Text style={[styles.label, {marginLeft: 6}]}>Goal Color</Text>
-                </View>
-                <View style={styles.colorsGrid}>
-                  {COLORS.map(c => (
-                    <TouchableOpacity
-                      key={c}
-                      onPress={() => setColor(c)}
-                      style={[
-                        styles.colorBtn,
-                        { backgroundColor: c },
-                        color === c && styles.colorBtnActive
-                      ]}
-                    >
-                      {color === c && <View style={styles.colorDot} />}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.field}>
-                <Text style={styles.label}>Goal Status</Text>
-                <View style={styles.statusRow}>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-brand-gray/60 uppercase tracking-widest ml-1">Goal Status</label>
+                <div className="flex gap-2">
                   {(['active', 'inactive'] as const).map((s) => (
-                    <TouchableOpacity
+                    <button
                       key={s}
-                      onPress={() => setStatus(s)}
-                      style={[
-                        styles.statusBtn,
-                        status === s && styles.statusBtnActive
-                      ]}
+                      type="button"
+                      onClick={() => setStatus(s)}
+                      className={cn(
+                        "flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
+                        status === s 
+                          ? "bg-brand-teal border-brand-teal text-white shadow-lg shadow-brand-teal/20" 
+                          : "bg-brand-bg border-brand-gray/5 text-brand-gray/40"
+                      )}
                     >
-                      <Text style={[
-                        styles.statusText,
-                        status === s && styles.statusTextActive
-                      ]}>{s}</Text>
-                    </TouchableOpacity>
+                      {s}
+                    </button>
                   ))}
-                </View>
-              </View>
+                  {status === 'completed' && (
+                    <div className="flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center">
+                      Completed
+                    </div>
+                  )}
+                </div>
+              </div>
 
-              <TouchableOpacity 
-                onPress={handleSubmit}
-                disabled={isSubmitting || !title || !target || !deadline}
-                style={[styles.submitBtn, (isSubmitting || !title || !target || !deadline) && styles.disabledBtn]}
+              <button 
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full bg-brand-teal hover:bg-brand-dark text-white py-5 rounded-[24px] font-black shadow-xl shadow-brand-teal/20 transition-all active:scale-95 disabled:opacity-50"
               >
-                {isSubmitting ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.submitBtnText}>{goal ? 'Update Goal' : 'Create Goal'}</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-            <View style={{ height: 40 }} />
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </View>
-    </Modal>
+                {goal ? 'Update Goal' : 'Create Goal'}
+              </button>
+            </form>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  modalContainer: {
-    width: '100%',
-    maxHeight: '90%',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 24,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111B21',
-  },
-  closeBtn: {
-    padding: 8,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 20,
-  },
-  form: {
-    gap: 20,
-  },
-  field: {
-    gap: 8,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  labelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  label: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#9ca3af',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(240, 242, 245, 0.5)',
-    borderWidth: 1,
-    borderColor: 'rgba(102, 119, 129, 0.05)',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    height: 52,
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#111B21',
-  },
-  inputSimple: {
-    backgroundColor: 'rgba(240, 242, 245, 0.5)',
-    borderWidth: 1,
-    borderColor: 'rgba(102, 119, 129, 0.05)',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    height: 52,
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#111B21',
-  },
-  iconsRow: {
-    gap: 12,
-    paddingBottom: 8,
-  },
-  iconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f9fafb',
-    borderWidth: 1,
-    borderColor: '#f3f4f6',
-  },
-  iconBtnActive: {
-    backgroundColor: '#00A884',
-    borderColor: '#00A884',
-    elevation: 4,
-  },
-  colorsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: '#f9fafb',
-    padding: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#f3f4f6',
-  },
-  colorBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  colorBtnActive: {
-    borderWidth: 3,
-    borderColor: '#fff',
-    elevation: 4,
-  },
-  colorDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#fff',
-  },
-  statusRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  statusBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#f3f4f6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f9fafb',
-  },
-  statusBtnActive: {
-    backgroundColor: '#00A884',
-    borderColor: '#00A884',
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#9ca3af',
-    textTransform: 'uppercase',
-  },
-  statusTextActive: {
-    color: '#fff',
-  },
-  submitBtn: {
-    backgroundColor: '#00A884',
-    paddingVertical: 18,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 12,
-    elevation: 8,
-    shadowColor: '#00A884',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-  },
-  disabledBtn: {
-    opacity: 0.3,
-  },
-  submitBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '900',
-  }
-});

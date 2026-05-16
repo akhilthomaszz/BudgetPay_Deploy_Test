@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, ActivityIndicator, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
-import { X, LayoutGrid, Palette, AlertCircle } from 'lucide-react-native';
+import { X, LayoutGrid, Palette, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { FirestoreService } from '../lib/firestoreService';
 import { useAuth } from '../context/AuthContext';
 import { useBudget } from '../context/BudgetContext';
 import { serverTimestamp } from 'firebase/firestore';
 import { Category } from '../types';
+import { cn } from '../lib/utils';
 import { ICON_MAP } from '../lib/icons';
 
 interface CategoryModalProps {
@@ -45,6 +46,7 @@ export function CategoryModal({ isOpen, onClose, category }: CategoryModalProps)
   }, [category, isOpen]);
 
   const totalBudget = profile?.monthlyBudget || 0;
+  // Calculate total allocated to OTHER categories
   const otherAllocated = categories
     .filter(c => c.id !== category?.id)
     .reduce((acc, c) => acc + c.monthlyLimit, 0);
@@ -54,7 +56,8 @@ export function CategoryModal({ isOpen, onClose, category }: CategoryModalProps)
   const isOverBudget = currentLimit > remainingAllocated;
   const allocationPercent = totalBudget > 0 ? (currentLimit / totalBudget) * 100 : 0;
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!user || !name || !limit || isOverBudget) return;
 
     setIsSubmitting(true);
@@ -90,284 +93,151 @@ export function CategoryModal({ isOpen, onClose, category }: CategoryModalProps)
   };
 
   return (
-    <Modal
-      visible={isOpen}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalContainer}
-        >
-          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-            <View style={styles.header}>
-              <Text style={styles.title}>{category ? 'Edit Category' : 'Add Category'}</Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <X size={20} color="#9ca3af" />
-              </TouchableOpacity>
-            </View>
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/60 z-[100] backdrop-blur-sm"
+          />
+          <motion.div 
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            className="fixed inset-x-0 bottom-0 bg-white rounded-t-[32px] p-8 z-[101] shadow-2xl"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-black text-brand-text">{category ? 'Edit Category' : 'Add Category'}</h2>
+              <button onClick={onClose} className="p-2 bg-brand-bg rounded-full text-brand-gray/60 hover:text-brand-teal transition-colors">
+                <X size={20} />
+              </button>
+            </div>
 
-            <View style={styles.form}>
-              <View style={styles.field}>
-                <Text style={styles.label}>Category Name</Text>
-                <View style={styles.inputWrapper}>
-                  <LayoutGrid color="#9ca3af" size={18} style={styles.inputIcon} />
-                  <TextInput 
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-brand-gray/60 uppercase tracking-widest ml-1 text-xs">Category Name</label>
+                <div className="relative">
+                  <LayoutGrid className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-gray/40" size={18} />
+                  <input 
+                    type="text" 
                     value={name}
-                    onChangeText={setName}
-                    style={styles.input}
+                    onChange={e => setName(e.target.value)}
                     placeholder="e.g. Entertainment, Health"
+                    className="w-full bg-brand-bg/50 border border-brand-gray/5 rounded-2xl p-5 pl-12 text-sm font-bold focus:ring-2 focus:ring-brand-teal outline-none transition-all text-brand-text"
+                    required
                   />
-                </View>
-              </View>
+                </div>
+              </div>
 
-              <View style={styles.field}>
-                <View style={styles.labelRow}>
-                  <Text style={styles.label}>Monthly Budget (₹)</Text>
-                  <Text style={[styles.pctText, isOverBudget && { color: '#ef4444' }]}>
-                    {allocationPercent.toFixed(1)}% of total
-                  </Text>
-                </View>
-                <View style={[styles.inputWrapper, isOverBudget && styles.inputWrapperError]}>
-                  <TextInput 
+              <div id="root" className="space-y-2">
+                <div className="flex justify-between items-end mb-1 px-1">
+                  <label className="text-[10px] font-black text-brand-gray/60 uppercase tracking-widest">Monthly Budget (₹)</label>
+                  <span className={cn("text-[10px] font-black", isOverBudget ? "text-rose-500" : "text-brand-teal")}>
+                    {allocationPercent.toFixed(1)}% of total budget
+                  </span>
+                </div>
+                <div className="relative">
+                  <input 
+                    type="number" 
                     value={limit}
-                    onChangeText={setLimit}
-                    keyboardType="numeric"
-                    style={[styles.input, { fontSize: 18, fontWeight: '900' }]}
+                    onChange={e => setLimit(e.target.value)}
                     placeholder="5000"
+                    className={cn(
+                       "w-full bg-brand-bg/50 border rounded-[20px] p-5 text-lg font-black focus:ring-4 outline-none transition-all shadow-inner",
+                       isOverBudget ? "border-rose-200 focus:ring-rose-100 text-rose-600" : "border-brand-gray/5 focus:ring-brand-light/30 text-brand-text"
+                    )}
+                    required
                   />
-                  {isOverBudget && <AlertCircle color="#ef4444" size={16} />}
-                </View>
-                <Text style={styles.availableText}>
-                  Available to allocate: <Text style={{color:'#111B21'}}>₹{remainingAllocated.toLocaleString()}</Text>
-                </Text>
-              </View>
+                  {isOverBudget && (
+                    <motion.div 
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-red-500 pointer-events-none"
+                    >
+                      <AlertCircle size={16} />
+                      <span className="text-[10px] font-bold uppercase">Exceeds Limit</span>
+                    </motion.div>
+                  )}
+                </div>
+                <div className="flex justify-between px-2">
+                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-tight">
+                    Available to allocate: <span className="text-gray-900">₹{remainingAllocated.toLocaleString()}</span>
+                  </p>
+                </div>
+              </div>
 
-              <View style={styles.field}>
-                <Text style={styles.label}>Choose Icon</Text>
-                <View style={styles.iconsGrid}>
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-brand-gray/60 uppercase tracking-widest ml-1">Choose Icon</label>
+                <div className="grid grid-cols-5 gap-3 bg-brand-bg/50 p-3 rounded-[24px] border border-brand-gray/5">
                   {CATEGORY_ICONS.map((id) => {
                     const Icon = ICON_MAP[id] || LayoutGrid;
                     return (
-                      <TouchableOpacity
+                      <button
                         key={id}
-                        onPress={() => setIconId(id)}
-                        style={[
-                          styles.iconBtn,
-                          iconId === id && styles.iconBtnActive
-                        ]}
+                        type="button"
+                        onClick={() => setIconId(id)}
+                        className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
+                          iconId === id 
+                            ? "bg-brand-teal text-white shadow-lg shadow-brand-teal/20 scale-110" 
+                            : "text-brand-gray/40 hover:text-brand-teal hover:bg-brand-light"
+                        )}
                       >
-                        <Icon size={20} color={iconId === id ? '#fff' : '#667781'} />
-                      </TouchableOpacity>
+                        <Icon size={20} />
+                      </button>
                     );
                   })}
-                </View>
-              </View>
+                </div>
+              </div>
 
-              <View style={styles.field}>
-                <View style={styles.labelRow}>
-                  <Palette size={12} color="#9ca3af" />
-                  <Text style={[styles.label, {marginLeft: 6}]}>Brand Color</Text>
-                </View>
-                <View style={styles.colorsGrid}>
-                  {COLORS.map(c => (
-                    <TouchableOpacity
-                      key={c}
-                      onPress={() => setColor(c)}
-                      style={[
-                        styles.colorBtn,
-                        { backgroundColor: c },
-                        color === c && styles.colorBtnActive
-                      ]}
-                    >
-                      {color === c && <View style={styles.colorDot} />}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                    <Palette size={12} /> Brand Color
+                  </label>
+                  <div className="flex justify-between bg-brand-bg/50 p-2 rounded-2xl border border-brand-gray/5">
+                    {COLORS.map(c => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setColor(c)}
+                        className={cn(
+                          "w-10 h-10 rounded-full transition-all relative overflow-hidden",
+                          color === c ? 'scale-110 shadow-lg ring-2 ring-white ring-offset-2 ring-offset-brand-teal' : 'hover:scale-105 saturate-50 hover:saturate-100'
+                        )}
+                        style={{ backgroundColor: c }}
+                      >
+                        {color === c && (
+                          <motion.div 
+                            layoutId="selected-color"
+                            className="absolute inset-0 bg-white/20 flex items-center justify-center"
+                          >
+                            <div className="w-2 h-2 rounded-full bg-white" />
+                          </motion.div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
 
-              <TouchableOpacity 
-                onPress={handleSubmit}
+              <button 
+                type="submit"
                 disabled={isSubmitting || isOverBudget || !name || !limit}
-                style={[styles.submitBtn, (isSubmitting || isOverBudget || !name || !limit) && styles.disabledBtn]}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.submitBtnText}>{category ? 'Save Changes' : 'Create Category'}</Text>
+                className={cn(
+                  "w-full py-5 rounded-[24px] font-black shadow-xl transition-all active:scale-95 disabled:opacity-30 disabled:grayscale",
+                  isOverBudget ? "bg-brand-bg text-brand-gray/30" : "bg-brand-teal hover:bg-brand-dark text-white shadow-brand-teal/20"
                 )}
-              </TouchableOpacity>
-            </View>
-            <View style={{ height: 40 }} />
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </View>
-    </Modal>
+              >
+                {category ? 'Save Changes' : 'Create Category'}
+              </button>
+            </form>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  modalContainer: {
-    width: '100%',
-    maxHeight: '90%',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 24,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111B21',
-  },
-  closeBtn: {
-    padding: 8,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 20,
-  },
-  form: {
-    gap: 24,
-  },
-  field: {
-    gap: 8,
-  },
-  labelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  label: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#9ca3af',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  pctText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#00A884',
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(240, 242, 245, 0.5)',
-    borderWidth: 1,
-    borderColor: 'rgba(102, 119, 129, 0.05)',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-  },
-  inputWrapperError: {
-    borderColor: '#fca5a5',
-    backgroundColor: '#fef2f2',
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    height: 52,
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#111B21',
-  },
-  availableText: {
-    fontSize: 9,
-    color: '#9ca3af',
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-    marginLeft: 4,
-  },
-  iconsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    backgroundColor: '#f9fafb',
-    padding: 16,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#f3f4f6',
-  },
-  iconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#f3f4f6',
-  },
-  iconBtnActive: {
-    backgroundColor: '#00A884',
-    borderColor: '#00A884',
-    elevation: 4,
-  },
-  colorsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: '#f9fafb',
-    padding: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#f3f4f6',
-  },
-  colorBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  colorBtnActive: {
-    borderWidth: 3,
-    borderColor: '#fff',
-    elevation: 4,
-  },
-  colorDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#fff',
-  },
-  submitBtn: {
-    backgroundColor: '#00A884',
-    paddingVertical: 18,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 8,
-    shadowColor: '#00A884',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-  },
-  disabledBtn: {
-    opacity: 0.3,
-  },
-  submitBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '900',
-  }
-});

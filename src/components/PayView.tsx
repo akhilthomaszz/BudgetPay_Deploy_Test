@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator } from 'react-native';
 import { 
   ArrowLeft, QrCode, Check, AlertTriangle, ExternalLink, 
   LayoutGrid, Target
-} from 'lucide-react-native';
+} from 'lucide-react';
 import { useBudget } from '../context/BudgetContext';
 import { FirestoreService } from '../lib/firestoreService';
 import { useAuth } from '../context/AuthContext';
+import { cn } from '../lib/utils';
+import { motion } from 'motion/react';
 import { getIconById } from '../lib/icons';
 
 import { doc, serverTimestamp } from 'firebase/firestore';
@@ -27,9 +28,9 @@ export function PayView({ onBack, onComplete }: { onBack: () => void, onComplete
   const selectedCat = categories.find(c => c.id === selectedId);
   const selectedGoal = activeGoals.find(g => g.id === selectedId);
 
-  const getIcon = (iconId: string, fallback: any, color: string) => {
+  const getIcon = (iconId: string, fallback: any) => {
     const Icon = getIconById(iconId || '', fallback);
-    return <Icon size={16} color={color} />;
+    return <Icon size={16} />;
   };
 
   const handleSelect = (id: string, type: 'category' | 'goal') => {
@@ -43,7 +44,10 @@ export function PayView({ onBack, onComplete }: { onBack: () => void, onComplete
         setNote(`Contribution: ${goal.title}`);
       }
     } else {
-      setNote('');
+      const cat = categories.find(c => c.id === id);
+      if (cat) {
+        setNote('');
+      }
     }
   };
 
@@ -72,6 +76,7 @@ export function PayView({ onBack, onComplete }: { onBack: () => void, onComplete
         txData.categoryId = selectedCat.id;
         txData.categoryName = selectedCat.name;
 
+        // Update category spent
         const catRef = doc(db, FirestoreService.getCategoriesPath(user.uid), selectedCat.id);
         batch.update(catRef, {
           spent: spentAfter,
@@ -81,6 +86,7 @@ export function PayView({ onBack, onComplete }: { onBack: () => void, onComplete
         txData.categoryId = selectedGoal.id;
         txData.categoryName = `Goal: ${selectedGoal.title}`;
 
+        // Update goal currentAmount
         const goalRef = doc(db, FirestoreService.getGoalsPath(user.uid), selectedGoal.id);
         batch.update(goalRef, {
           currentAmount: selectedGoal.currentAmount + Number(amount),
@@ -100,378 +106,171 @@ export function PayView({ onBack, onComplete }: { onBack: () => void, onComplete
     }
   };
 
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <div className="px-5 space-y-6 pb-6 pt-2">
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <ArrowLeft color="#667781" size={20} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Express Pay</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <div className="flex items-center justify-between">
+        <button onClick={onBack} className="p-2 -ml-2 text-brand-gray">
+          <ArrowLeft size={20} />
+        </button>
+        <h2 className="text-lg font-bold tracking-tight text-brand-text">Express Pay</h2>
+        <div className="w-10" />
+      </div>
 
-      {/* Selection Box */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Select Budget or Goal</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectionScroll}>
+      {/* Category/Goal Selection at TOP */}
+      <div className="space-y-3">
+        <label className="text-[10px] font-black text-brand-gray/60 uppercase tracking-widest ml-1">Select Budget or Goal</label>
+        <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar">
           {categories.map(cat => (
-            <TouchableOpacity
+            <button
               key={cat.id}
-              onPress={() => handleSelect(cat.id, 'category')}
-              style={[
-                styles.selectButton,
-                selectedId === cat.id && selectionType === 'category' && styles.selectButtonActive
-              ]}
+              onClick={() => handleSelect(cat.id, 'category')}
+              className={cn(
+                "px-5 py-2.5 rounded-full text-xs font-black border transition-all shrink-0 uppercase tracking-wider flex items-center gap-2",
+                selectedId === cat.id && selectionType === 'category'
+                  ? "bg-brand-teal border-brand-teal text-white shadow-xl scale-105" 
+                  : "bg-white border-brand-gray/10 text-brand-gray hover:border-brand-gray/30"
+              )}
             >
-              {getIcon(cat.icon, LayoutGrid, selectedId === cat.id && selectionType === 'category' ? '#fff' : '#667781')}
-              <Text style={[
-                styles.selectButtonText,
-                selectedId === cat.id && selectionType === 'category' && styles.selectButtonTextActive
-              ]}>{cat.name}</Text>
-            </TouchableOpacity>
+              {getIcon(cat.icon, LayoutGrid)}
+              {cat.name}
+            </button>
           ))}
-          <View style={styles.divider} />
+          <div className="w-px h-8 bg-brand-gray/10 mx-1 shrink-0 self-center" />
           {activeGoals.map(goal => (
-            <TouchableOpacity
+            <button
               key={goal.id}
-              onPress={() => handleSelect(goal.id, 'goal')}
-              style={[
-                styles.selectButton,
-                selectedId === goal.id && selectionType === 'goal' && styles.goalButtonActive
-              ]}
+              onClick={() => handleSelect(goal.id, 'goal')}
+              className={cn(
+                "px-5 py-2.5 rounded-full text-xs font-black border transition-all shrink-0 uppercase tracking-wider flex items-center gap-2",
+                selectedId === goal.id && selectionType === 'goal'
+                  ? "bg-brand-dark border-brand-dark text-white shadow-xl scale-105" 
+                  : "bg-brand-light/30 border-brand-light/50 text-brand-teal hover:border-brand-teal/30"
+              )}
             >
-              {getIcon(goal.icon, Target, selectedId === goal.id && selectionType === 'goal' ? '#fff' : '#00A884')}
-              <Text style={[
-                styles.selectButtonText,
-                selectedId === goal.id && selectionType === 'goal' && styles.selectButtonTextActive
-              ]}>{goal.title}</Text>
-            </TouchableOpacity>
+              {getIcon(goal.icon, Target)}
+              {goal.title}
+            </button>
           ))}
-        </ScrollView>
-      </View>
+        </div>
+      </div>
 
-      {/* Inputs */}
-      <View style={styles.inputSection}>
-        <View style={styles.amountField}>
-           <Text style={styles.inputLabel}>Amount (₹)</Text>
-           <TextInput
-             style={styles.amountInput}
-             value={amount}
-             onChangeText={setAmount}
-             keyboardType="numeric"
-             placeholder="0"
-             placeholderTextColor="#e5e7eb"
-           />
-        </View>
+      {/* Amount and Note */}
+      <div className="space-y-5">
+        <div className="relative group">
+          <div className="absolute -top-2 left-6 px-2 bg-white text-[10px] font-black text-brand-gray/60 uppercase tracking-widest z-10 transition-colors group-focus-within:text-brand-teal">Amount (₹)</div>
+          <input 
+            type="number" 
+            value={amount} 
+            onChange={e => setAmount(e.target.value)}
+            className="w-full bg-brand-bg/50 border-2 border-brand-gray/5 rounded-[28px] p-8 text-4xl font-black focus:ring-4 focus:ring-brand-light/30 focus:border-brand-teal outline-none transition-all placeholder:text-brand-gray/20 text-brand-text"
+            placeholder="0"
+          />
+        </div>
 
-        <TextInput
-          style={styles.noteInput}
-          value={note}
-          onChangeText={setNote}
-          placeholder="What's this for?"
-          placeholderTextColor="#9ca3af"
-        />
-      </View>
+        <div className="relative">
+          <input 
+            type="text" 
+            value={note} 
+            onChange={e => setNote(e.target.value)}
+            className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-5 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+            placeholder="What's this for?"
+          />
+        </div>
+      </div>
 
-      {/* Recipient Info */}
-      <View style={styles.recipientCard}>
-        <View style={styles.qrIconBox}>
-          <QrCode color="#008069" size={24} />
-        </View>
-        <View style={styles.recipientInfo}>
-          <Text style={styles.verifiedText}>Recipient Verified</Text>
-          <Text style={styles.upiId}>rahul.sharma@okaxis</Text>
-        </View>
-        <Check color="#10b981" size={20} strokeWidth={3} />
-      </View>
+      {/* QR Mock / Verified info */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-4">
+          <div className="h-px bg-gray-100 flex-1" />
+          <span className="text-[10px] text-gray-400 uppercase tracking-widest font-black">Scan or Pay</span>
+          <div className="h-px bg-gray-100 flex-1" />
+        </div>
 
-      {/* Budget Impact */}
+        <div className="bg-brand-light/20 border border-brand-light p-5 rounded-[28px] flex items-center gap-4">
+          <div className="w-12 h-12 bg-brand-light rounded-2xl flex items-center justify-center text-brand-dark">
+            <QrCode size={24} />
+          </div>
+          <div className="flex-1">
+            <p className="text-[10px] text-brand-teal font-black uppercase tracking-widest mb-0.5">Recipient Verified</p>
+            <p className="text-sm font-black text-brand-text">rahul.sharma@okaxis</p>
+          </div>
+          <Check className="text-emerald-500" size={20} strokeWidth={3} />
+        </div>
+      </div>
+
+      {/* Warnings */}
       {selectedCat && (
-        <View style={styles.impactCard}>
-          <Text style={styles.impactLabel}>{selectedCat.name.toUpperCase()} AFTER PAYMENT</Text>
-          <View style={styles.impactMain}>
-            <Text style={styles.impactAmount}>₹ {(selectedCat.monthlyLimit - spentAfter).toLocaleString()}</Text>
-            <Text style={styles.impactSub}>left</Text>
-          </View>
-          <View style={styles.barBg}>
-             <View style={[styles.barFill, { width: `${Math.min(percentAfter, 100)}%`, backgroundColor: '#f97316' }]} />
-          </View>
-          <View style={styles.impactFooter}>
-            <Text style={styles.impactFooterText}>{percentAfter.toFixed(0)}% budget used</Text>
-            <Text style={styles.impactFooterText}>Limit: ₹{selectedCat.monthlyLimit.toLocaleString()}</Text>
-          </View>
-        </View>
+        <div className="bg-orange-50 border border-orange-100 p-5 rounded-[28px]">
+          <div className="flex items-center gap-1.5 text-[10px] font-black text-orange-700 uppercase tracking-widest mb-3">
+             {selectedCat.name} after payment
+          </div>
+          <div className="flex items-baseline gap-2 mb-3">
+            <span className="text-2xl font-black text-orange-900 leading-none">₹ {(selectedCat.monthlyLimit - spentAfter).toLocaleString()}</span>
+            <span className="text-[10px] text-orange-600 font-bold uppercase">left</span>
+          </div>
+          <div className="w-full bg-orange-200/30 h-2 rounded-full overflow-hidden">
+             <motion.div 
+               initial={{ width: `${(selectedCat.spent / selectedCat.monthlyLimit) * 100}%` }}
+               animate={{ width: `${Math.min(percentAfter, 100)}%` }}
+               className="h-full bg-orange-500 rounded-full shadow-[0_0_8px_rgba(249,115,22,0.4)]"
+             />
+          </div>
+          <div className="flex justify-between mt-2">
+            <p className="text-[10px] text-orange-700 font-black uppercase tracking-tight">{percentAfter.toFixed(0)}% budget used</p>
+            <p className="text-[10px] text-orange-400 font-black uppercase">Limit: ₹{selectedCat.monthlyLimit.toLocaleString()}</p>
+          </div>
+        </div>
       )}
 
       {selectedGoal && (
-        <View style={[styles.impactCard, { backgroundColor: 'rgba(217, 253, 211, 0.2)', borderColor: '#D9FDD3' }]}>
-          <Text style={[styles.impactLabel, { color: '#00A884' }]}>SAVINGS PROGRESS: {selectedGoal.title.toUpperCase()}</Text>
-          <View style={styles.impactMain}>
-            <Text style={styles.impactAmount}>₹ {(selectedGoal.currentAmount + Number(amount)).toLocaleString()}</Text>
-            <Text style={[styles.impactSub, { color: '#00A884' }]}>saved</Text>
-          </View>
-          <View style={[styles.barBg, { backgroundColor: '#D9FDD3' }]}>
-             <View style={[styles.barFill, { width: `${Math.min(((selectedGoal.currentAmount + Number(amount)) / selectedGoal.targetAmount) * 100, 100)}%`, backgroundColor: '#00A884' }]} />
-          </View>
-          <View style={styles.impactFooter}>
-            <Text style={[styles.impactFooterText, { color: '#008069' }]}>
-               {(((selectedGoal.currentAmount + Number(amount)) / selectedGoal.targetAmount) * 100).toFixed(0)}% to target
-            </Text>
-            <Text style={styles.impactFooterText}>Target: ₹{selectedGoal.targetAmount.toLocaleString()}</Text>
-          </View>
-        </View>
+        <div className="bg-brand-light/20 border border-brand-light p-5 rounded-[28px]">
+           <div className="flex items-center gap-1.5 text-[10px] font-black text-brand-teal uppercase tracking-widest mb-3">
+             Savings Progress: {selectedGoal.title}
+           </div>
+          <div className="flex items-baseline gap-2 mb-3">
+            <span className="text-2xl font-black text-brand-text leading-none">₹ {(selectedGoal.currentAmount + Number(amount)).toLocaleString()}</span>
+            <span className="text-[10px] text-brand-teal font-bold uppercase">saved</span>
+          </div>
+          <div className="w-full bg-brand-light h-2 rounded-full overflow-hidden">
+             <motion.div 
+               initial={{ width: `${(selectedGoal.currentAmount / selectedGoal.targetAmount) * 100}%` }}
+               animate={{ width: `${Math.min(((selectedGoal.currentAmount + Number(amount)) / selectedGoal.targetAmount) * 100, 100)}%` }}
+               className="h-full bg-brand-teal rounded-full shadow-[0_0_8px_rgba(0,168,132,0.4)]"
+             />
+          </div>
+          <div className="flex justify-between mt-2">
+            <p className="text-[10px] text-brand-dark font-black uppercase tracking-tight">
+              {(((selectedGoal.currentAmount + Number(amount)) / selectedGoal.targetAmount) * 100).toFixed(0)}% to target
+            </p>
+            <p className="text-[10px] text-brand-gray/60 font-black uppercase tracking-tight">Target: ₹{selectedGoal.targetAmount.toLocaleString()}</p>
+          </div>
+        </div>
       )}
 
-      {/* Pay Button */}
-      <View style={styles.bottomSection}>
-        <TouchableOpacity 
-          onPress={handlePay}
+      {/* Pay Buttons */}
+      <div className="space-y-4 pt-4">
+        <button 
+          onClick={handlePay}
           disabled={isProcessing || !amount || Number(amount) <= 0}
-          style={[styles.payButton, (isProcessing || !amount || Number(amount) <= 0) && styles.payButtonDisabled]}
+          className="w-full bg-brand-teal hover:bg-brand-dark active:scale-95 disabled:opacity-30 disabled:grayscale transition-all text-white py-6 rounded-[32px] font-black text-lg flex items-center justify-center gap-3 shadow-2xl shadow-brand-teal/20 border-b-8 border-brand-dark"
         >
           {isProcessing ? (
-            <ActivityIndicator color="#fff" />
+            <motion.div 
+              animate={{ rotate: 360 }} 
+              transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+              className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full"
+            />
           ) : (
             <>
-              <ExternalLink color="#fff" size={20} strokeWidth={3} />
-              <Text style={styles.payButtonText}>Pay ₹{amount || '0'} Now</Text>
+              <ExternalLink size={20} strokeWidth={3} />
+              Pay ₹{amount || '0'} Now
             </>
           )}
-        </TouchableOpacity>
-        <Text style={styles.securityText}>Secured by UPI Protocol</Text>
-      </View>
-    </ScrollView>
+        </button>
+        <p className="text-[10px] text-gray-400 text-center font-black uppercase tracking-[0.2em]">Secured by UPI Protocol</p>
+      </div>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: 20,
-    gap: 24,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  backButton: {
-    padding: 8,
-    marginLeft: -8,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111B21',
-  },
-  section: {
-    gap: 12,
-  },
-  sectionLabel: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: 'rgba(102, 119, 129, 0.6)',
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-    marginLeft: 4,
-  },
-  selectionScroll: {
-    gap: 8,
-    paddingBottom: 4,
-  },
-  selectButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: 'rgba(102, 119, 129, 0.1)',
-    backgroundColor: '#fff',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  selectButtonActive: {
-    backgroundColor: '#00A884',
-    borderColor: '#00A884',
-    elevation: 4,
-  },
-  goalButtonActive: {
-    backgroundColor: '#008069',
-    borderColor: '#008069',
-    elevation: 4,
-  },
-  selectButtonText: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#667781',
-    textTransform: 'uppercase',
-  },
-  selectButtonTextActive: {
-    color: '#fff',
-  },
-  divider: {
-    width: 1,
-    height: 32,
-    backgroundColor: 'rgba(102, 119, 129, 0.1)',
-    marginHorizontal: 4,
-    alignSelf: 'center',
-  },
-  inputSection: {
-    gap: 20,
-  },
-  amountField: {
-    backgroundColor: 'rgba(240, 242, 245, 0.5)',
-    borderWidth: 2,
-    borderColor: 'rgba(102, 119, 129, 0.05)',
-    borderRadius: 28,
-    padding: 20,
-    paddingTop: 24,
-  },
-  inputLabel: {
-    position: 'absolute',
-    top: 8,
-    left: 20,
-    fontSize: 10,
-    fontWeight: '900',
-    color: 'rgba(102, 119, 129, 0.6)',
-    textTransform: 'uppercase',
-  },
-  amountInput: {
-    fontSize: 48,
-    fontWeight: '900',
-    color: '#111B21',
-  },
-  noteInput: {
-    backgroundColor: '#f9fafb',
-    borderWidth: 1,
-    borderColor: '#f3f4f6',
-    borderRadius: 16,
-    padding: 16,
-    fontSize: 14,
-    color: '#111B21',
-    fontWeight: 'bold',
-  },
-  recipientCard: {
-    backgroundColor: 'rgba(217, 253, 211, 0.2)',
-    borderWidth: 1,
-    borderColor: '#D9FDD3',
-    padding: 20,
-    borderRadius: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  qrIconBox: {
-    width: 48,
-    height: 48,
-    backgroundColor: '#D9FDD3',
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  recipientInfo: {
-    flex: 1,
-  },
-  verifiedText: {
-    fontSize: 10,
-    color: '#00A884',
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  upiId: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#111B21',
-  },
-  impactCard: {
-    backgroundColor: '#fff7ed',
-    borderWidth: 1,
-    borderColor: '#ffedd5',
-    padding: 20,
-    borderRadius: 28,
-  },
-  impactLabel: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#c2410c',
-    marginBottom: 12,
-  },
-  impactMain: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-    marginBottom: 12,
-  },
-  impactAmount: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#7c2d12',
-  },
-  impactSub: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#ea580c',
-    textTransform: 'uppercase',
-  },
-  barBg: {
-    height: 8,
-    backgroundColor: 'rgba(254, 215, 170, 0.3)',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  barFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  impactFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  impactFooterText: {
-    fontSize: 10,
-    color: '#9a3412',
-    fontWeight: '900',
-  },
-  bottomSection: {
-    gap: 16,
-    paddingTop: 16,
-  },
-  payButton: {
-    backgroundColor: '#00A884',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 20,
-    borderRadius: 32,
-    gap: 12,
-    elevation: 8,
-    shadowColor: '#00A884',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    borderBottomWidth: 6,
-    borderBottomColor: '#008069',
-  },
-  payButtonDisabled: {
-    opacity: 0.3,
-  },
-  payButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  securityText: {
-    fontSize: 10,
-    color: '#9ca3af',
-    textAlign: 'center',
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-  }
-});

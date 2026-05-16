@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { Search, Plus, CreditCard, ArrowRight, Wallet, TrendingUp } from 'lucide-react';
 import { useBudget } from '../context/BudgetContext';
 import { useAuth } from '../context/AuthContext';
+import { motion } from 'motion/react';
+import { cn } from '../lib/utils';
 import { getIconById } from '../lib/icons';
-
-const { width } = Dimensions.get('window');
 
 export function HomeView({ onScanPay, onProfileClick }: { onScanPay: () => void, onProfileClick: () => void }) {
   const { profile, categories, transactions, goals } = useBudget();
@@ -29,306 +29,113 @@ export function HomeView({ onScanPay, onProfileClick }: { onScanPay: () => void,
   };
 
   return (
-    <View style={styles.container}>
+    <div className="px-5 space-y-6 pb-6">
       {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greetingText}>{getGreeting()},</Text>
-          <Text style={styles.nameText}>{profile?.displayName || user?.displayName?.split(' ')[0] || 'Member'}</Text>
-        </View>
-        <TouchableOpacity 
-          onPress={onProfileClick}
-          style={styles.profileButton}
+      <header className="flex justify-between items-center py-4">
+        <div>
+          <p className="text-gray-500 text-sm">{getGreeting()},</p>
+          <h1 className="text-xl font-bold text-gray-900">{profile?.displayName || user?.displayName?.split(' ')[0] || 'Member'}</h1>
+        </div>
+        <button 
+          onClick={onProfileClick}
+          className="w-10 h-10 rounded-full bg-brand-light flex items-center justify-center text-brand-dark font-bold border-2 border-white shadow-sm hover:scale-105 transition-transform"
         >
           {user?.photoURL ? (
-             <Image source={{ uri: user.photoURL }} style={styles.avatar} />
+             <img src={user.photoURL} alt="Avatar" className="w-full h-full rounded-full object-cover" />
           ) : (
-             <View style={styles.initialsContainer}>
-               <Text style={styles.initialsText}>{user?.displayName?.charAt(0) || 'U'}</Text>
-             </View>
+             user?.displayName?.charAt(0) || 'U'
           )}
-        </TouchableOpacity>
-      </View>
+        </button>
+      </header>
 
-      {/* Main Budget Card */}
-      <View style={styles.budgetCard}>
-        <Text style={styles.budgetLabel}>Total budget remaining</Text>
-        <Text style={styles.remainingAmount}>₹ {remaining.toLocaleString()}</Text>
+      {/* Main Card */}
+      <motion.div 
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="bg-brand-light/40 border border-brand-teal/10 rounded-[40px] p-8 shadow-xl shadow-brand-teal/10 relative overflow-hidden"
+      >
+        <div className="absolute top-0 right-0 w-32 h-32 bg-brand-teal/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
         
-        <View style={styles.safeContainer}>
-           <View style={styles.safeSubContainer}>
-              <View style={styles.pulseDot} />
-              <Text style={styles.safeText}>Safe to spend: <Text style={styles.safeAmount}>₹{safeDailyOverall.toLocaleString()}</Text> / day</Text>
-           </View>
-        </View>
+        <div className="relative z-10 text-center">
+          <p className="text-brand-dark/50 text-[10px] font-black uppercase tracking-[0.2em] mb-3">Total budget remaining</p>
+          <h2 className="text-4xl font-black mb-6 text-brand-dark tracking-tight">₹ {remaining.toLocaleString()}</h2>
+          
+          <div className="flex justify-center mb-8">
+            <div className="flex items-center gap-2 bg-white/60 px-4 py-2 rounded-full border border-brand-teal/20 backdrop-blur-sm shadow-sm">
+              <div className="w-2 h-2 rounded-full bg-brand-teal animate-pulse" />
+              <span className="text-[11px] font-bold text-brand-dark">Safe to spend: <span className="text-sm">₹{safeDailyOverall.toLocaleString()}</span> / day</span>
+            </div>
+          </div>
 
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Budget</Text>
-            <Text style={styles.statValue}>₹ {totalBudget.toLocaleString()}</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Spent</Text>
-            <Text style={[styles.statValue, { color: '#00A884' }]}>₹ {totalSpent.toLocaleString()}</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Days Left</Text>
-            <Text style={styles.statValue}>{daysRemaining}</Text>
-          </View>
-        </View>
-      </View>
+          <div className="grid grid-cols-3 gap-4 pt-6 border-t border-brand-teal/10">
+            <div>
+              <p className="text-brand-dark/40 text-[9px] uppercase tracking-wider mb-1 font-black">Budget</p>
+              <p className="text-sm font-bold text-brand-dark">₹ {totalBudget.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-brand-dark/40 text-[9px] uppercase tracking-wider mb-1 font-black">Spent</p>
+              <p className="text-sm font-bold text-brand-teal">₹ {totalSpent.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-brand-dark/40 text-[9px] uppercase tracking-wider mb-1 font-black">Days Left</p>
+              <p className="text-sm font-bold text-brand-dark">{daysRemaining}</p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Category Snapshot */}
-      <View style={styles.snapSection}>
-        <View style={styles.snapHeader}>
-          <Text style={styles.snapTitle}>Category Snapshot</Text>
-        </View>
-        
-        <View style={styles.listContainer}>
+      <div>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xs font-black text-brand-gray/60 uppercase tracking-widest pl-1">Category Snapshot</h3>
+          <button className="text-xs text-brand-teal font-bold flex items-center gap-1">
+            Safe Daily Spend
+          </button>
+        </div>
+        <div className="bg-white border border-gray-100 rounded-[24px] divide-y divide-gray-50 overflow-hidden shadow-sm">
           {categories.slice(0, 4).map((cat) => {
             const percent = (cat.spent / cat.monthlyLimit) * 100;
             const catRemaining = cat.monthlyLimit - cat.spent;
             const safeDaily = Math.max(0, Math.floor(catRemaining / daysRemaining));
+
             const CategoryIcon = getIconById(cat.icon || '');
 
             return (
-              <View key={cat.id} style={styles.catItem}>
-                <View style={[styles.iconBox, { backgroundColor: `${cat.color}15` }]}>
-                  <CategoryIcon color={cat.color} size={20} />
-                </View>
-                <View style={styles.catDetails}>
-                  <View style={styles.catTopRow}>
-                    <Text style={styles.catName} numberOfLines={1}>{cat.name}</Text>
-                    <Text style={[styles.catSpent, { color: percent > 90 ? '#ef4444' : '#16a34a' }]}>
+              <div key={cat.id} className="p-4 flex items-center gap-4 hover:bg-gray-50 transition-colors group">
+                <div 
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm group-hover:scale-110 transition-transform"
+                  style={{ backgroundColor: `${cat.color}15`, color: cat.color }}
+                >
+                  <CategoryIcon size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-baseline mb-1">
+                    <span className="text-sm font-black text-gray-900 truncate">{cat.name}</span>
+                    <span className={cn("text-[10px] font-black uppercase tracking-tighter", percent > 90 ? "text-red-500" : "text-green-600")}>
                       ₹ {cat.spent.toLocaleString()}
-                    </Text>
-                  </View>
-                  <View style={styles.catMidRow}>
-                    <Text style={styles.safeTextSmall}>
-                      Safe daily: <Text style={{ color: '#00A884' }}>₹{safeDaily.toLocaleString()}</Text>
-                    </Text>
-                    <Text style={styles.percentText}>{percent.toFixed(0)}% used</Text>
-                  </View>
-                  <View style={styles.progressBarBg}>
-                    <View 
-                      style={[
-                        styles.progressBarFill, 
-                        { width: `${Math.min(percent, 100)}%`, backgroundColor: cat.color }
-                      ]} 
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center mb-2">
+                    <p className="text-[10px] text-brand-gray font-bold">
+                       Safe daily: <span className="text-brand-teal">₹{safeDaily.toLocaleString()}</span>
+                    </p>
+                    <span className="text-[10px] text-gray-300 font-black tracking-tighter">{percent.toFixed(0)}% used</span>
+                  </div>
+                  <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden shadow-inner">
+                    <motion.div 
+                       initial={{ width: 0 }}
+                       animate={{ width: `${Math.min(percent, 100)}%` }}
+                       className="h-full rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.1)]"
+                       style={{ backgroundColor: cat.color }}
                     />
-                  </View>
-                </View>
-              </View>
+                  </div>
+                </div>
+              </div>
             );
           })}
-        </View>
-      </View>
-    </View>
+        </div>
+      </div>
+
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
-  },
-  greetingText: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  nameText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  profileButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#D9FDD3',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
-    elevation: 2,
-  },
-  avatar: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 20,
-  },
-  initialsContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  initialsText: {
-    color: '#008069',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  budgetCard: {
-    backgroundColor: 'rgba(217, 253, 211, 0.4)',
-    borderRadius: 32,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 168, 132, 0.1)',
-    alignItems: 'center',
-  },
-  budgetLabel: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: 'rgba(0, 128, 105, 0.5)',
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-    marginBottom: 8,
-  },
-  remainingAmount: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: '#008069',
-    marginBottom: 16,
-  },
-  safeContainer: {
-    marginBottom: 20,
-  },
-  safeSubContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.6)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 168, 132, 0.2)',
-  },
-  pulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#00A884',
-    marginRight: 8,
-  },
-  safeText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#008069',
-  },
-  safeAmount: {
-    fontSize: 13,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    width: '100%',
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 168, 132, 0.1)',
-    justifyContent: 'space-between',
-  },
-  statItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statLabel: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: 'rgba(0, 128, 105, 0.4)',
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  statValue: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#008069',
-  },
-  snapSection: {
-    marginTop: 20,
-  },
-  snapHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  snapTitle: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: 'rgba(102, 119, 129, 0.6)',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-  },
-  listContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#f3f4f6',
-  },
-  catItem: {
-    flexDirection: 'row',
-    padding: 16,
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f9fafb',
-  },
-  iconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  catDetails: {
-    flex: 1,
-  },
-  catTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  catName: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#111821',
-    flex: 1,
-  },
-  catSpent: {
-    fontSize: 10,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-  catMidRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  safeTextSmall: {
-    fontSize: 10,
-    color: '#667781',
-    fontWeight: 'bold',
-  },
-  percentText: {
-    fontSize: 10,
-    color: '#d1d5db',
-    fontWeight: '900',
-  },
-  progressBarBg: {
-    height: 6,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 3,
-  }
-});

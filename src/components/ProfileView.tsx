@@ -1,8 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert } from 'react-native';
-import { User, Settings, LayoutGrid, CalendarRange, Bell, FileText, LogOut, ChevronRight, ArrowLeft } from 'lucide-react-native';
+import { User, Settings, LayoutGrid, CalendarRange, Bell, FileText, LogOut, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useBudget } from '../context/BudgetContext';
 import { useAuth } from '../context/AuthContext';
+import { cn } from '../lib/utils';
+
+import { ProfileSettingsModal } from './ProfileSettingsModal';
 
 export function ProfileView({ onBack, onCategories }: { onBack: () => void, onCategories: () => void }) {
   const { profile, categories, transactions } = useBudget();
@@ -12,230 +14,86 @@ export function ProfileView({ onBack, onCategories }: { onBack: () => void, onCa
   const totalSpent = categories.reduce((acc, cat) => acc + cat.spent, 0);
 
   const menuItems = [
-    { label: 'Budget Settings', sub: 'Adjust limits & currency', icon: Settings, color: '#00A884', bg: '#D9FDD3', onClick: () => Alert.alert("Coming Soon", "Settings module is being optimized for native.") },
-    { label: 'Budget Categories', sub: 'Manage & edit spending limits', icon: LayoutGrid, color: '#008069', bg: '#ecfdf5', onClick: onCategories },
-    { label: 'Monthly Reset', sub: 'Resets on 1st of every month', icon: CalendarRange, color: '#ea580c', bg: '#fff7ed' },
-    { label: 'Export Data', sub: 'Download as CSV or PDF', icon: FileText, color: '#9333ea', bg: '#faf5ff', onClick: () => Alert.alert('Export', 'Exporting data... Feature coming soon!') },
+    { label: 'Budget Settings', sub: 'Adjust limits & currency', icon: Settings, color: 'text-brand-teal bg-brand-light', onClick: () => setIsSettingsOpen(true) },
+    { label: 'Budget Categories', sub: 'Manage & edit spending limits', icon: LayoutGrid, color: 'text-brand-dark bg-emerald-50', onClick: onCategories },
+    { label: 'Monthly Reset', sub: 'Resets on 1st of every month', icon: CalendarRange, color: 'text-orange-600 bg-orange-100' },
+    { label: 'Export Data', sub: 'Download as CSV or PDF', icon: FileText, color: 'text-purple-600 bg-purple-100', onClick: () => alert('Exporting data... Feature coming soon!') },
   ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <div className="space-y-6 pb-6 pt-2">
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <ArrowLeft color="#667781" size={20} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Profile</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <div className="px-5 flex items-center justify-between">
+        <button onClick={onBack} className="p-2 -ml-2 text-brand-gray/60">
+          <ArrowLeft size={20} />
+        </button>
+        <h2 className="text-lg font-bold text-brand-text">Profile</h2>
+        <div className="w-10" />
+      </div>
+
+      <ProfileSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
       {/* User Info */}
-      <View style={styles.userInfo}>
-        <View style={styles.avatarContainer}>
+      <div className="px-5 flex items-center gap-4 py-2">
+        <div className="w-16 h-16 rounded-full bg-brand-light flex items-center justify-center text-brand-dark text-xl font-bold border-4 border-white shadow-md">
           {user?.photoURL ? (
-            <Image source={{ uri: user.photoURL }} style={styles.avatar} />
+            <img src={user.photoURL} alt="Avatar" className="w-full h-full rounded-full object-cover" />
           ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarInitials}>{user?.displayName?.charAt(0) || 'U'}</Text>
-            </View>
+            user?.displayName?.charAt(0) || <User size={24} />
           )}
-        </View>
-        <View style={styles.userText}>
-          <Text style={styles.userName}>{profile?.displayName || user?.displayName || 'User'}</Text>
-          <Text style={styles.userEmail}>{user?.email}</Text>
-          <Text style={styles.memberSince}>Member since Jan 2025</Text>
-        </View>
-      </View>
+        </div>
+        <div>
+          <h3 className="text-lg font-bold text-brand-text leading-tight">{profile?.displayName || user?.displayName || 'User'}</h3>
+          <p className="text-sm text-brand-gray/80">{user?.email}</p>
+          <p className="text-[10px] text-brand-teal font-black mt-1 uppercase tracking-wider">Member since Jan 2025</p>
+        </div>
+      </div>
 
       {/* Summary Stats */}
-      <View style={styles.statsGrid}>
-        <View style={styles.statCard}>
-          <Text style={styles.statAmount}>₹ {totalSpent.toLocaleString()}</Text>
-          <Text style={styles.statLabel}>Spent this month</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={[styles.statAmount, { color: '#00A884' }]}>{transactions.length}</Text>
-          <Text style={styles.statLabel}>Payments made</Text>
-        </View>
-      </View>
+      <div className="px-5 grid grid-cols-2 gap-3">
+        <div className="bg-brand-bg/50 border border-brand-gray/5 p-4 rounded-2xl text-center">
+          <p className="text-lg font-bold text-brand-text">₹ {totalSpent.toLocaleString()}</p>
+          <p className="text-[10px] text-brand-gray/60 font-bold uppercase tracking-tight">Spent this month</p>
+        </div>
+        <div className="bg-brand-bg/50 border border-brand-gray/5 p-4 rounded-2xl text-center">
+          <p className="text-lg font-bold text-brand-teal">{transactions.length}</p>
+          <p className="text-[10px] text-brand-gray/60 font-bold uppercase tracking-tight">Payments made</p>
+        </div>
+      </div>
 
       {/* Menu */}
-      <View style={styles.menuContainer}>
+      <div className="border-t border-brand-gray/5 divide-y divide-brand-gray/5">
         {menuItems.map((item, idx) => (
-          <TouchableOpacity 
+          <button 
             key={idx}
-            onPress={item.onClick}
-            style={styles.menuItem}
-            activeOpacity={0.6}
+            onClick={item.onClick}
+            className="w-full px-5 py-5 flex items-center gap-4 hover:bg-brand-bg/20 transition-all active:scale-[0.98]"
           >
-            <View style={[styles.menuIconBox, { backgroundColor: item.bg }]}>
-              <item.icon size={20} color={item.color} />
-            </View>
-            <View style={styles.menuLabelContainer}>
-              <Text style={styles.menuLabel}>{item.label}</Text>
-              <Text style={styles.menuSub}>{item.sub}</Text>
-            </View>
-            <ChevronRight size={16} color="rgba(102, 119, 129, 0.2)" />
-          </TouchableOpacity>
+            <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", item.color)}>
+              <item.icon size={20} />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-bold text-brand-text leading-tight">{item.label}</p>
+              <p className="text-[11px] text-brand-gray/40 font-medium">{item.sub}</p>
+            </div>
+            <ChevronRight size={16} className="text-brand-gray/20" />
+          </button>
         ))}
         
-        <TouchableOpacity 
-          onPress={logOut}
-          style={styles.menuItem}
-          activeOpacity={0.6}
+        <button 
+          onClick={logOut}
+          className="w-full px-5 py-5 flex items-center gap-4 hover:bg-rose-50 transition-all active:scale-[0.98] group"
         >
-          <View style={[styles.menuIconBox, { backgroundColor: '#fff1f2' }]}>
-            <LogOut size={20} color="#f43f5e" />
-          </View>
-          <View style={styles.menuLabelContainer}>
-            <Text style={[styles.menuLabel, { color: '#f43f5e' }]}>Sign out</Text>
-            <Text style={styles.menuSub}>Log out of this account</Text>
-          </View>
-          <ChevronRight size={16} color="rgba(244, 63, 94, 0.1)" />
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+          <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center shrink-0">
+            <LogOut size={20} />
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-sm font-bold text-rose-500 leading-tight">Sign out</p>
+            <p className="text-[11px] text-rose-300 font-medium group-hover:text-rose-400 transition-colors">Log out of this account</p>
+          </div>
+          <ChevronRight size={16} className="text-rose-100 group-hover:text-rose-300 transition-colors" />
+        </button>
+      </div>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    paddingBottom: 40,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  backButton: {
-    padding: 8,
-    marginLeft: -8,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111B21',
-  },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    gap: 16,
-  },
-  avatarContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#D9FDD3',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 4,
-    borderColor: '#fff',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  avatar: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 32,
-  },
-  avatarPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarInitials: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#008069',
-  },
-  userText: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111B21',
-  },
-  userEmail: {
-    fontSize: 14,
-    color: '#667781',
-    opacity: 0.8,
-  },
-  memberSince: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#00A884',
-    marginTop: 4,
-    textTransform: 'uppercase',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 24,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: 'rgba(240, 242, 245, 0.5)',
-    borderWidth: 1,
-    borderColor: 'rgba(102, 119, 129, 0.05)',
-    padding: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
-  statAmount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111B21',
-  },
-  statLabel: {
-    fontSize: 10,
-    color: 'rgba(102, 119, 129, 0.6)',
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-    marginTop: 2,
-  },
-  menuContainer: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(102, 119, 129, 0.05)',
-    gap: 16,
-  },
-  menuIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  menuLabelContainer: {
-    flex: 1,
-  },
-  menuLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#111B21',
-  },
-  menuSub: {
-    fontSize: 11,
-    color: 'rgba(102, 119, 129, 0.4)',
-    fontWeight: '500',
-  }
-});

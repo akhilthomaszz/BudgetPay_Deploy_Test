@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Dimensions, Modal } from 'react-native';
 import { 
   ArrowLeft, Plus, Edit2, Trash2, AlertCircle, Target, LayoutGrid
-} from 'lucide-react-native';
+} from 'lucide-react';
 import { useBudget } from '../context/BudgetContext';
+import { motion } from 'motion/react';
+import { cn } from '../lib/utils';
+import { CategoryModal } from './CategoryModal';
+import { GoalModal } from './GoalModal';
 import { FirestoreService } from '../lib/firestoreService';
 import { useAuth } from '../context/AuthContext';
 import { getIconById } from '../lib/icons';
-import { Category, Goal } from '../types';
 
-// For simplicity in conversion, I'll assume the modals are handled or I'll implement simple versions here
-// Real Expo Snack projects often prefer everything in fewer files or very clear structure.
+import { Category, Goal } from '../types';
 
 export function CategoriesView({ onBack }: { onBack: () => void }) {
   const { categories, profile, goals } = useBudget();
@@ -22,473 +23,329 @@ export function CategoriesView({ onBack }: { onBack: () => void }) {
 
   const getCategoryIcon = (cat: Category) => {
     const Icon = getIconById(cat.icon || '', LayoutGrid);
-    return <Icon size={18} color={cat.color || '#667781'} />;
+    return <Icon size={18} />;
   };
 
   const getGoalIcon = (goal: Goal) => {
     const Icon = getIconById(goal.icon || '', Target);
-    return <Icon size={18} color={goal.color || '#00A884'} />;
+    return <Icon size={18} />;
+  };
+
+  const getCatColor = (catName: string) => {
+    switch (catName.toLowerCase()) {
+      case 'groceries': return 'text-orange-600 bg-orange-100';
+      case 'transport': return 'text-brand-teal bg-brand-light';
+      case 'shopping': return 'text-red-600 bg-red-100';
+      case 'dining': return 'text-green-600 bg-green-100';
+      case 'bills': return 'text-purple-600 bg-purple-100';
+      default: return 'text-brand-gray bg-brand-bg';
+    }
   };
 
   const handleDelete = async (id: string) => {
-    if (!user) return;
-    Alert.alert(
-      "Delete Category",
-      "Are you sure you want to delete this category?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Delete", 
-          style: "destructive",
-          onPress: async () => {
-             try {
-               await FirestoreService.deleteDocument(FirestoreService.getCategoriesPath(user.uid), id);
-             } catch (err) {
-               console.error(err);
-             }
-          }
-        }
-      ]
-    );
+    if (!user || !confirm('Are you sure you want to delete this category?')) return;
+    try {
+      await FirestoreService.deleteDocument(FirestoreService.getCategoriesPath(user.uid), id);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleEditCat = (cat: Category) => {
+    setEditingCategory(cat);
+    setIsCatModalOpen(true);
+  };
+
+  const handleCloseCatModal = () => {
+    setIsCatModalOpen(false);
+    setEditingCategory(null);
+  };
+
+  const handleEditGoal = (goal: Goal) => {
+    setEditingGoal(goal);
+    setIsGoalModalOpen(true);
+  };
+
+  const handleCloseGoalModal = () => {
+    setIsGoalModalOpen(false);
+    setEditingGoal(null);
   };
 
   const activeGoalsForList = goals.filter(g => g.status !== 'completed');
+
   const totalCatAllocated = categories.reduce((acc, cat) => acc + cat.monthlyLimit, 0);
   const totalGoalAllocated = activeGoalsForList.reduce((acc, goal) => acc + (goal.monthlyContribution || 0), 0);
   const totalAllocated = totalCatAllocated + totalGoalAllocated;
+
+  const totalCatSpent = categories.reduce((acc, cat) => acc + cat.spent, 0);
+  // For goals, we might want to track current month's contribution, 
+  // but for now let's just use 0 or something similar if we don't have per-month spent for goals.
+  // Actually, let's just use the categories' spent for the 'Total Usage' progress bar to keep it simple,
+  // OR if we want to be accurate, we'd need a way to track this month's goal payments.
+  const totalSpent = totalCatSpent; 
   const totalBudget = profile?.monthlyBudget || 0;
   const allocationPercent = totalBudget > 0 ? (totalAllocated / totalBudget) * 100 : 0;
+  const spentPercent = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <ArrowLeft color="#667781" size={20} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Categories</Text>
-        <TouchableOpacity onPress={() => Alert.alert("Add Category", "Manual entry is being ported.")} style={styles.addButton}>
-          <Plus color="#667781" size={16} />
-        </TouchableOpacity>
-      </View>
+    <div className="px-5 space-y-6 pb-6 pt-2">
+      <header className="flex items-center justify-between py-4">
+        <button onClick={onBack} className="p-2 -ml-2 text-brand-gray">
+          <ArrowLeft size={20} />
+        </button>
+        <h2 className="text-lg font-bold text-brand-text">Budget Categories</h2>
+        <button 
+          onClick={() => setIsCatModalOpen(true)}
+          className="w-8 h-8 rounded-full bg-brand-bg border border-brand-gray/10 flex items-center justify-center text-brand-gray transition-colors"
+        >
+          <Plus size={16} />
+        </button>
+      </header>
 
-      <View style={styles.summaryCard}>
-        <View style={styles.summaryHeader}>
-          <View>
-            <Text style={styles.summarySub}>{new Date().toLocaleString('default', { month: 'long' })} {new Date().getFullYear()} Allocation</Text>
-            <View style={styles.summaryAmountRow}>
-               <Text style={styles.totalAllocatedText}>₹{totalAllocated.toLocaleString()}</Text>
-               <Text style={styles.totalBudgetText}>/ ₹{totalBudget.toLocaleString()}</Text>
-            </View>
-          </View>
-          <View style={[styles.percentBadge, allocationPercent > 100 ? styles.percentBadgeRed : styles.percentBadgeTeal]}>
-             <Text style={styles.percentText}>{allocationPercent.toFixed(0)}%</Text>
-             <Text style={styles.percentSub}>Planned</Text>
-          </View>
-        </View>
+      <CategoryModal 
+        isOpen={isCatModalOpen} 
+        onClose={handleCloseCatModal} 
+        category={editingCategory}
+      />
 
-        <View style={styles.splitGrid}>
-           <View style={styles.splitItem}>
-              <Text style={styles.splitLabel}>Spend Allocation</Text>
-              <Text style={styles.splitAmount}>₹{totalCatAllocated.toLocaleString()}</Text>
-              <View style={styles.miniBarBg}>
-                 <View style={[styles.miniBarFill, { backgroundColor: '#f97316', width: `${(totalCatAllocated / (totalAllocated || 1)) * 100}%` }]} />
-              </View>
-           </View>
-           <View style={styles.splitItem}>
-              <Text style={styles.splitLabel}>Save Allocation</Text>
-              <Text style={[styles.splitAmount, { color: '#00A884' }]}>₹{totalGoalAllocated.toLocaleString()}</Text>
-              <View style={styles.miniBarBg}>
-                 <View style={[styles.miniBarFill, { backgroundColor: '#00A884', width: `${(totalGoalAllocated / (totalAllocated || 1)) * 100}%` }]} />
-              </View>
-           </View>
-        </View>
+      <GoalModal 
+        isOpen={isGoalModalOpen}
+        onClose={handleCloseGoalModal}
+        goal={editingGoal}
+      />
 
-        <View style={styles.overallSection}>
-           <Text style={styles.splitLabel}>Overall Budget Utilization</Text>
-           <View style={styles.overallBarBg}>
-              <View style={[styles.overallBarPart, { backgroundColor: '#fb923c', width: `${(totalCatAllocated / (totalBudget || 1)) * 100}%` }]} />
-              <View style={[styles.overallBarPart, { backgroundColor: '#00A884', width: `${(totalGoalAllocated / (totalBudget || 1)) * 100}%` }]} />
-           </View>
-           <View style={styles.legend}>
-              <View style={styles.legendItem}>
-                 <View style={[styles.legendDot, { backgroundColor: '#fb923c' }]} />
-                 <Text style={styles.legendText}>Spending</Text>
-              </View>
-              <View style={styles.legendItem}>
-                 <View style={[styles.legendDot, { backgroundColor: '#00A884' }]} />
-                 <Text style={styles.legendText}>Savings</Text>
-              </View>
-           </View>
-        </View>
+      <div className="space-y-6">
+        <div className="bg-white rounded-[32px] p-6 border border-brand-gray/10 space-y-6 shadow-sm">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="text-[10px] font-black text-brand-gray/60 uppercase tracking-[0.1em] mb-2">
+                {new Date().toLocaleString('default', { month: 'long' })} {new Date().getFullYear()} Allocation
+              </h3>
+              <div className="flex items-baseline gap-1.5 focus-within:ring-2">
+                <span className="text-2xl font-black text-brand-text tracking-tight">₹{totalAllocated.toLocaleString()}</span>
+                <span className="text-[10px] font-black text-brand-gray/60 uppercase tracking-widest">/ ₹{totalBudget.toLocaleString()}</span>
+              </div>
+            </div>
+            <div className={cn(
+              "px-3 py-1.5 rounded-xl flex flex-col items-center justify-center font-black",
+              allocationPercent > 100 ? "bg-red-50 text-red-600 border border-red-100" : "bg-brand-teal text-white shadow-lg shadow-brand-teal/20"
+            )}>
+              <span className="text-sm leading-none">{allocationPercent.toFixed(0)}%</span>
+              <span className="text-[8px] uppercase tracking-tighter mt-1">Planned</span>
+            </div>
+          </div>
 
-        {allocationPercent > 100 && (
-          <View style={styles.warningBox}>
-             <AlertCircle size={18} color="#ef4444" />
-             <Text style={styles.warningText}>
-                Warning: You have allocated ₹{(totalAllocated - totalBudget).toLocaleString()} more than your budget.
-             </Text>
-          </View>
-        )}
-      </View>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <span className="text-[9px] font-black text-brand-gray/60 uppercase tracking-widest">Spend Allocation</span>
+              <p className="text-xs font-bold text-brand-text">₹{totalCatAllocated.toLocaleString()}</p>
+              <div className="h-1 w-full bg-brand-gray/10 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-orange-500 rounded-full"
+                  style={{ width: `${(totalCatAllocated / (totalAllocated || 1)) * 100}%` }}
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <span className="text-[9px] font-black text-brand-gray/60 uppercase tracking-widest">Save Allocation</span>
+              <p className="text-xs font-bold text-brand-teal">₹{totalGoalAllocated.toLocaleString()}</p>
+              <div className="h-1 w-full bg-brand-gray/10 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-brand-teal rounded-full"
+                  style={{ width: `${(totalGoalAllocated / (totalAllocated || 1)) * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
 
-      <View style={styles.listSection}>
-        <View style={styles.sectionHeader}>
-           <Text style={styles.sectionTitle}>Spend Budget</Text>
-           <Text style={styles.sectionInfo}>₹{totalCatAllocated.toLocaleString()} Total</Text>
-        </View>
-        <View style={styles.cardList}>
-          {categories.map((cat) => {
-            const percent = (cat.spent / cat.monthlyLimit) * 100;
-            const remaining = cat.monthlyLimit - cat.spent;
-            return (
-              <View key={cat.id} style={styles.listItem}>
-                <View style={[styles.iconBox, { backgroundColor: `${cat.color}15` }]}>
-                  {getCategoryIcon(cat)}
-                </View>
-                <View style={styles.listDetails}>
-                   <View style={styles.listTopRow}>
-                      <Text style={styles.itemName}>{cat.name}</Text>
-                      <View style={styles.itemActions}>
-                        <TouchableOpacity style={styles.actionBtn}>
-                          <Edit2 size={12} color="rgba(102, 119, 129, 0.4)" />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => handleDelete(cat.id)} style={styles.actionBtn}>
-                          <Trash2 size={12} color="rgba(239, 68, 68, 0.4)" />
-                        </TouchableOpacity>
-                      </View>
-                   </View>
-                   <View style={styles.listMidRow}>
-                      <View>
-                        <Text style={styles.itemBudget}>Budget ₹{cat.monthlyLimit.toLocaleString()}</Text>
-                        <Text style={styles.itemSub}>{remaining.toLocaleString()} left • {(cat.monthlyLimit / (totalBudget || 1) * 100).toFixed(1)}% of total</Text>
-                      </View>
-                      <View style={[styles.itemBadge, { backgroundColor: `${cat.color}15` }]}>
-                        <Text style={[styles.itemBadgeText, { color: cat.color }]}>{percent.toFixed(0)}%</Text>
-                      </View>
-                   </View>
-                   <View style={styles.barBgSmall}>
-                      <View style={[styles.barFillSmall, { backgroundColor: cat.color, width: `${Math.min(percent, 100)}%` }]} />
-                   </View>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      </View>
+          <div className="space-y-4 pt-4 border-t border-brand-gray/10">
+            <div className="space-y-2">
+              <div className="flex justify-between items-end">
+                <span className="text-[9px] font-black text-brand-gray/60 uppercase tracking-widest">Overall Budget Utilization</span>
+              </div>
+              <div className="h-2 w-full bg-brand-gray/10 rounded-full overflow-hidden flex shadow-inner">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(totalCatAllocated / (totalBudget || 1)) * 100}%` }}
+                  className="h-full bg-orange-400"
+                />
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(totalGoalAllocated / (totalBudget || 1)) * 100}%` }}
+                  className="h-full bg-brand-teal border-l border-white/20"
+                />
+              </div>
+              <div className="flex gap-4">
+                 <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-orange-400" />
+                    <span className="text-[8px] font-black text-brand-gray/60 uppercase tracking-widest">Spending</span>
+                 </div>
+                 <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-brand-teal" />
+                    <span className="text-[8px] font-black text-brand-gray/60 uppercase tracking-widest">Savings</span>
+                 </div>
+              </div>
+            </div>
+          </div>
 
-      <TouchableOpacity 
-        onPress={() => Alert.alert("Add Category", "Manual entry is being ported.")}
-        style={styles.dashedButton}
-      >
-        <Plus size={16} color="#667781" />
-        <Text style={styles.dashedButtonText}>Add new category</Text>
-      </TouchableOpacity>
-    </ScrollView>
+          {allocationPercent > 100 && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex items-center gap-3 text-red-500 bg-red-50/50 p-4 rounded-2xl border border-red-100/50"
+            >
+               <AlertCircle size={18} className="shrink-0" />
+               <p className="text-[10px] font-bold uppercase tracking-tight leading-normal">
+                 Warning: You have allocated <span className="font-black">₹{(totalAllocated - totalBudget).toLocaleString()}</span> more than your overall budget.
+               </p>
+            </motion.div>
+          )}
+        </div>
+        
+        {/* Spend Budget Section */}
+        <div className="space-y-3">
+          <div className="flex justify-between items-center px-1">
+            <h3 className="text-[10px] font-black text-brand-gray/50 uppercase tracking-[0.2em]">Spend Budget</h3>
+            <span className="text-[9px] font-bold text-brand-gray/50 uppercase tracking-widest">₹{totalCatAllocated.toLocaleString()} Total</span>
+          </div>
+          <div className="bg-white border border-brand-gray/10 rounded-[24px] divide-y divide-brand-gray/5 overflow-hidden shadow-sm">
+            {categories.map((cat) => {
+              const percent = (cat.spent / cat.monthlyLimit) * 100;
+              const remaining = cat.monthlyLimit - cat.spent;
+              
+              return (
+                <div key={cat.id} className="p-4 flex items-center gap-4 hover:bg-brand-bg/20 transition-colors group">
+                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm", getCatColor(cat.name))}>
+                     {getCategoryIcon(cat)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-baseline mb-1">
+                      <span className="text-sm font-bold text-brand-text truncate">{cat.name}</span>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => handleEditCat(cat)}
+                          className="p-1 text-brand-gray/30 hover:text-brand-teal transition-colors"
+                        >
+                          <Edit2 size={12} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(cat.id)}
+                          className="p-1 text-brand-gray/30 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-baseline mb-2">
+                      <div className="flex flex-col">
+                        <span className="text-[11px] text-brand-gray font-medium leading-tight">Budget ₹{cat.monthlyLimit.toLocaleString()}</span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[9px] text-brand-gray/80 font-bold uppercase tracking-tight">₹{remaining.toLocaleString()} left</span>
+                          <span className="w-0.5 h-0.5 bg-brand-gray/20 rounded-full" />
+                          <span className="text-[9px] text-brand-gray/40 font-bold uppercase tracking-tight">{(cat.monthlyLimit / (profile?.monthlyBudget || 1) * 100).toFixed(1)}% of total</span>
+                        </div>
+                      </div>
+                      <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-md", getCatColor(cat.name))}>
+                        {percent.toFixed(0)}% used
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-100 h-1 rounded-full overflow-hidden">
+                      <motion.div 
+                         initial={{ width: 0 }}
+                         animate={{ width: `${Math.min(percent, 100)}%` }}
+                         className="h-full rounded-full"
+                         style={{ backgroundColor: cat.color }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Save Budget Section */}
+        <div className="space-y-3">
+          <div className="flex justify-between items-center px-1">
+            <h3 className="text-[10px] font-black text-brand-gray/50 uppercase tracking-[0.2em]">Save Budget</h3>
+            <span className="text-[9px] font-bold text-brand-gray/50 uppercase tracking-widest">₹{totalGoalAllocated.toLocaleString()} Total</span>
+          </div>
+          <div className="bg-white border border-brand-gray/10 rounded-[24px] divide-y divide-brand-gray/5 overflow-hidden shadow-sm">
+            {activeGoalsForList.map((goal) => {
+              const monthlyGoal = goal.monthlyContribution || 0;
+              const progress = (goal.currentAmount / goal.targetAmount) * 100;
+              const isInactive = goal.status === 'inactive';
+              
+              return (
+                <div key={goal.id} className={cn(
+                  "p-4 flex items-center gap-4 hover:bg-brand-bg/20 transition-colors group",
+                  isInactive ? "bg-brand-bg/40 opacity-60" : "bg-brand-light/10"
+                )}>
+                  <div className={cn(
+                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
+                    isInactive ? "bg-brand-bg text-brand-gray/60" : "bg-brand-light text-brand-teal"
+                  )}>
+                     {getGoalIcon(goal)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-baseline mb-1">
+                      <div className="flex items-center gap-2">
+                         <span className="text-sm font-bold text-brand-text truncate">{goal.title}</span>
+                         <span className={cn(
+                           "text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter",
+                           isInactive ? "bg-brand-bg text-brand-gray/60" : "bg-brand-teal text-white"
+                         )}>
+                           {isInactive ? 'Paused' : 'Goal'}
+                         </span>
+                      </div>
+                      <button 
+                        onClick={() => handleEditGoal(goal)}
+                        className="p-1 text-brand-gray/30 hover:text-brand-teal transition-colors"
+                      >
+                        <Edit2 size={12} />
+                      </button>
+                    </div>
+                    <div className="flex justify-between items-baseline mb-2">
+                      <div className="flex flex-col">
+                        <span className="text-[11px] text-brand-gray font-medium leading-tight">Target Save ₹{monthlyGoal.toLocaleString()}/mo</span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className={cn(
+                            "text-[9px] font-bold uppercase tracking-tight",
+                            isInactive ? "text-brand-gray/60" : "text-brand-teal"
+                          )}>₹{(goal.targetAmount - goal.currentAmount).toLocaleString()} to target</span>
+                          <span className="w-0.5 h-0.5 bg-brand-gray/20 rounded-full" />
+                          <span className="text-[9px] text-brand-gray/40 font-bold uppercase tracking-tight">{(monthlyGoal / (profile?.monthlyBudget || 1) * 100).toFixed(1)}% of total</span>
+                        </div>
+                      </div>
+                      <span className={cn(
+                        "text-[9px] font-bold px-1.5 py-0.5 rounded-md",
+                        isInactive ? "bg-brand-bg text-brand-gray/60" : "bg-brand-light text-brand-teal"
+                      )}>
+                        {progress.toFixed(0)}% safe
+                      </span>
+                    </div>
+                    <div className="w-full bg-brand-gray/10 h-1 rounded-full overflow-hidden">
+                      <motion.div 
+                         initial={{ width: 0 }}
+                         animate={{ width: `${Math.min(progress, 100)}%` }}
+                         className={cn("h-full rounded-full", isInactive ? "bg-brand-gray/30" : "bg-brand-teal")}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <button 
+          onClick={() => setIsCatModalOpen(true)}
+          className="w-full py-4 rounded-[24px] border-2 border-dashed border-brand-gray/10 text-brand-gray text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 hover:bg-brand-bg transition-all"
+        >
+          <Plus size={16} /> Add new category
+        </button>
+      </div>
+    </div>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 100,
-    gap: 24,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  backButton: {
-    padding: 8,
-    marginLeft: -8,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111B21',
-  },
-  addButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F0F2F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(102, 119, 129, 0.1)',
-  },
-  summaryCard: {
-    backgroundColor: '#fff',
-    borderRadius: 32,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(102, 119, 129, 0.1)',
-    gap: 24,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-  },
-  summaryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  summarySub: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: 'rgba(102, 119, 129, 0.6)',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  summaryAmountRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 6,
-  },
-  totalAllocatedText: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#111B21',
-  },
-  totalBudgetText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: 'rgba(102, 119, 129, 0.6)',
-    textTransform: 'uppercase',
-  },
-  percentBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  percentBadgeTeal: {
-    backgroundColor: '#00A884',
-  },
-  percentBadgeRed: {
-    backgroundColor: '#fee2e2',
-  },
-  percentText: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#fff',
-  },
-  percentBadgeRedText: {
-    color: '#ef4444',
-  },
-  percentSub: {
-    fontSize: 8,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.7)',
-  },
-  splitGrid: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  splitItem: {
-    flex: 1,
-    gap: 4,
-  },
-  splitLabel: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: 'rgba(102, 119, 129, 0.6)',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  splitAmount: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#111B21',
-  },
-  miniBarBg: {
-    height: 4,
-    backgroundColor: 'rgba(102, 119, 129, 0.1)',
-    borderRadius: 2,
-    marginTop: 4,
-  },
-  miniBarFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  overallSection: {
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
-    gap: 8,
-  },
-  overallBarBg: {
-    height: 8,
-    backgroundColor: 'rgba(102, 119, 129, 0.1)',
-    borderRadius: 4,
-    flexDirection: 'row',
-    overflow: 'hidden',
-  },
-  overallBarPart: {
-    height: '100%',
-  },
-  legend: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
-    fontSize: 8,
-    fontWeight: '900',
-    color: 'rgba(102, 119, 129, 0.6)',
-    textTransform: 'uppercase',
-  },
-  warningBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff1f2',
-    padding: 12,
-    borderRadius: 16,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: '#ffe4e6',
-  },
-  warningText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#ef4444',
-    flex: 1,
-  },
-  listSection: {
-    gap: 12,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  sectionTitle: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: 'rgba(102, 119, 129, 0.5)',
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-  },
-  sectionInfo: {
-    fontSize: 9,
-    fontWeight: 'bold',
-    color: 'rgba(102, 119, 129, 0.5)',
-    textTransform: 'uppercase',
-  },
-  cardList: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(102, 119, 129, 0.1)',
-    overflow: 'hidden',
-  },
-  listItem: {
-    flexDirection: 'row',
-    padding: 16,
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(102, 119, 129, 0.05)',
-  },
-  iconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  listDetails: {
-    flex: 1,
-  },
-  listTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-    marginBottom: 4,
-  },
-  itemName: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#111B21',
-  },
-  itemActions: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  actionBtn: {
-    padding: 4,
-  },
-  listMidRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginBottom: 8,
-  },
-  itemBudget: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#667781',
-  },
-  itemSub: {
-    fontSize: 9,
-    color: 'rgba(102, 119, 129, 0.5)',
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-  },
-  itemBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  itemBadgeText: {
-    fontSize: 9,
-    fontWeight: '900',
-  },
-  barBgSmall: {
-    height: 4,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 2,
-  },
-  barFillSmall: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  dashedButton: {
-    width: '100%',
-    paddingVertical: 16,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: 'rgba(102, 119, 129, 0.1)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  dashedButtonText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#667781',
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-  }
-});
