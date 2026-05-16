@@ -1,0 +1,93 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and budget settings",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "monthlyBudget": { "type": "number" },
+        "currency": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "monthlyBudget", "currency"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Spending category with budget limit",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "icon": { "type": "string" },
+        "color": { "type": "string" },
+        "monthlyLimit": { "type": "number" },
+        "spent": { "type": "number" }
+      },
+      "required": ["userId", "name", "monthlyLimit", "spent"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Expense or income record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "categoryId": { "type": "string" },
+        "categoryName": { "type": "string" },
+        "note": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "receiverName": { "type": "string" },
+        "receiverUpi": { "type": "string" },
+        "method": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amount", "categoryId", "categoryName", "date", "createdAt"]
+    },
+    "Goal": {
+      "title": "Goal",
+      "description": "Savings goal",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "targetAmount": { "type": "number" },
+        "currentAmount": { "type": "number" },
+        "monthlyContribution": { "type": "number" },
+        "deadline": { "type": "string", "format": "date-time" },
+        "icon": { "type": "string" },
+        "color": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "targetAmount", "currentAmount", "deadline", "status", "createdAt"]
+    }
+
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Individual user profiles"
+    },
+    "/users/{userId}/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "User-defined budget categories"
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Expense records for the user"
+    },
+    "/users/{userId}/goals/{goalId}": {
+      "schema": "Goal",
+      "description": "Savings goals for the user"
+    }
+  }
+}
